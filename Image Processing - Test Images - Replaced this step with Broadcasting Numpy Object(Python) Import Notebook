@@ -1,0 +1,572 @@
+databricks-logox4. Image Processing - Test Images - Replaced this step with Broadcasting Numpy Object(Python) Import Notebook
+dbutils.fs.ls('dbfs:/mnt/images/Cervix Data/test_data')
+Out[3]: 
+[FileInfo(path='dbfs:/mnt/images/Cervix Data/test_data/solution_stg1_release.csv', name='solution_stg1_release.csv', size=7090),
+ FileInfo(path='dbfs:/mnt/images/Cervix Data/test_data/test/', name='test/', size=0),
+ FileInfo(path='dbfs:/mnt/images/Cervix Data/test_data/test_image_metadata.csv', name='test_image_metadata.csv', size=67830),
+ FileInfo(path='dbfs:/mnt/images/Cervix Data/test_data/test_stg2/', name='test_stg2/', size=0)]
+import pandas as pd
+data = pd.read_csv("/dbfs/mnt/images/Cervix Data/test_data/solution_stg1_release.csv", header=0)
+display(data)
+0.jpg	0	1	0
+1.jpg	0	1	0
+2.jpg	1	0	0
+3.jpg	0	0	1
+4.jpg	0	0	1
+5.jpg	0	1	0
+6.jpg	0	1	0
+7.jpg	0	1	0
+8.jpg	0	1	0
+9.jpg	0	1	0
+10.jpg	0	1	0
+11.jpg	0	0	1
+12.jpg	0	1	0
+13.jpg	0	0	1
+14.jpg	0	1	0
+15.jpg	0	0	1
+16.jpg	1	0	0
+17.jpg	0	1	0
+18.jpg	0	1	0
+19.jpg	0	0	1
+20.jpg	1	0	0
+21.jpg	0	1	0
+22.jpg	0	1	0
+23.jpg	1	0	0
+24.jpg	0	1	0
+25.jpg	1	0	0
+26.jpg	0	1	0
+27.jpg	0	0	1
+28.jpg	0	1	0
+29.jpg	0	0	1
+30.jpg	1	0	0
+31.jpg	0	1	0
+32.jpg	0	1	0
+33.jpg	1	0	0
+34.jpg	0	1	0
+35.jpg	0	0	1
+36.jpg	0	1	0
+37.jpg	0	1	0
+38.jpg	0	1	0
+39.jpg	1	0	0
+40.jpg	0	0	1
+41.jpg	0	1	0
+42.jpg	0	1	0
+43.jpg	0	1	0
+44.jpg	1	0	0
+45.jpg	0	0	1
+46.jpg	1	0	0
+47.jpg	1	0	0
+48.jpg	0	0	1
+49.jpg	0	0	1
+50.jpg	0	0	1
+51.jpg	1	0	0
+52.jpg	0	0	1
+53.jpg	1	0	0
+54.jpg	0	0	1
+55.jpg	0	0	1
+56.jpg	0	1	0
+57.jpg	0	1	0
+58.jpg	0	1	0
+59.jpg	1	0	0
+60.jpg	0	0	1
+61.jpg	0	1	0
+62.jpg	0	0	1
+63.jpg	0	1	0
+64.jpg	0	1	0
+65.jpg	1	0	0
+66.jpg	0	0	1
+67.jpg	0	0	1
+68.jpg	0	0	1
+69.jpg	0	0	1
+70.jpg	1	0	0
+71.jpg	0	1	0
+72.jpg	0	1	0
+73.jpg	1	0	0
+74.jpg	0	0	1
+75.jpg	1	0	0
+76.jpg	0	0	1
+77.jpg	0	1	0
+78.jpg	0	0	1
+79.jpg	1	0	0
+80.jpg	0	1	0
+81.jpg	0	1	0
+82.jpg	0	1	0
+83.jpg	0	0	1
+84.jpg	1	0	0
+85.jpg	0	1	0
+86.jpg	0	0	1
+87.jpg	0	0	1
+88.jpg	0	1	0
+89.jpg	0	0	1
+90.jpg	1	0	0
+91.jpg	0	1	0
+92.jpg	0	0	1
+93.jpg	0	1	0
+94.jpg	0	1	0
+95.jpg	0	1	0
+96.jpg	1	0	0
+97.jpg	0	0	1
+98.jpg	0	1	0
+99.jpg	0	0	1
+image_name	Type_1	Type_2	Type_3
+ 
+import cv2
+import pandas as pd
+import numpy as np
+def scaling(img,scale_x,scale_y):
+    """
+    Input an image in a numpy array, scale of the x and ydirection as a decimal
+    Outputs a numpy array as the scaled image
+    """
+    return cv2.resize(img,(scale_x, scale_y), interpolation = cv2.INTER_AREA)
+def min_max_normalization(x,min,max):
+  """
+  This function takes an n by m array and normalizes each value based on the average of min and max values
+  of the RBG scale (min=0 and max=255).
+
+  It return an n by m array
+  """
+  avg_value=(max+min)/2.0
+  norm_array = np.zeros(x.shape)+avg_value
+  normalized_x= (x-norm_array)/norm_array
+  return normalized_x
+images = []
+angles = []
+i=0
+for key, batch_sample in data.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = "/dbfs/mnt/images/Cervix Data/test_data/test/"+batch_sample.image_name
+  img = cv2.imread(name)
+  img = min_max_normalization(scaling(img,150,200), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = []
+  center_angle.append(batch_sample.Type_1)
+  center_angle.append(batch_sample.Type_2)
+  center_angle.append(batch_sample.Type_3)
+  images.append(img)
+  angles.append(center_angle)
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_test = np.array(images)
+y_test = np.array(angles)
+np.save("/dbfs//Cervix Data/same_aspect/X_test.npy", X_test)
+np.save("/dbfs//Cervix Data/same_aspect/y_test.npy", y_test)
+0
+100
+200
+300
+400
+500
+#completed
+#create normalized training directory
+
+import cv2
+import pandas as pd
+import numpy as np
+def scaling(img,scale_x,scale_y):
+    """
+    Input an image in a numpy array, scale of the x and ydirection as a decimal
+    Outputs a numpy array as the scaled image
+    """
+    return cv2.resize(img,(scale_x, scale_y), interpolation = cv2.INTER_AREA)
+def min_max_normalization(x,min,max):
+  """
+  This function takes an n by m array and normalizes each value based on the average of min and max values
+  of the RBG scale (min=0 and max=255).
+
+  It return an n by m array
+  """
+  avg_value=(max+min)/2.0
+  norm_array = np.zeros(x.shape)+avg_value
+  normalized_x= (x-norm_array)/norm_array
+  return normalized_x
+images = []
+angles = []
+i=0
+for batch_sample in dbutils.fs.ls("dbfs:/mnt/images/Cervix Data/test_data/test_stg2/"):
+  if i % 100 == 0:
+    print(i, "/dbfs"+str(batch_sample.path).split(":")[-1])
+  name = "/dbfs"+str(batch_sample.path).split(":")[-1]
+  img = cv2.imread(name)
+  img = min_max_normalization(scaling(img,150,200), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  
+  images.append(img)
+  
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_test_stg2 = np.array(images)
+#y_test_stg2 = np.array(angles)
+np.save("/dbfs//Cervix Data/same_aspect/X_test_stg2.npy", X_test_stg2)
+#np.save("/dbfs/pepar/Cervix Data/same_aspect/y_test_stg2.npy", y_test_stg2)
+0 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10000.jpg
+100 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10100.jpg
+200 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10200.jpg
+300 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10300.jpg
+400 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10400.jpg
+500 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10500.jpg
+600 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10600.jpg
+700 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10700.jpg
+800 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10800.jpg
+900 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/10900.jpg
+1000 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11000.jpg
+1100 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11100.jpg
+1200 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11200.jpg
+1300 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11300.jpg
+1400 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11400.jpg
+1500 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11500.jpg
+1600 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11600.jpg
+1700 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11700.jpg
+1800 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11800.jpg
+1900 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/11900.jpg
+2000 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12000.jpg
+2100 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12100.jpg
+2200 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12200.jpg
+2300 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12300.jpg
+2400 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12400.jpg
+2500 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12500.jpg
+2600 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12600.jpg
+2700 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12700.jpg
+2800 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12800.jpg
+2900 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/12900.jpg
+3000 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13000.jpg
+3100 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13100.jpg
+3200 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13200.jpg
+3300 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13300.jpg
+3400 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13400.jpg
+3500 /dbfs/mnt/images/Cervix Data/test_data/test_stg2/13500.jpg
+#completed
+#create normalized training directory
+dbutils.fs.mkdirs("dbfs://Cervix Data/same_aspect/Type_2/")
+Out[7]: True
+#completed
+#create normalized training directory
+dbutils.fs.mkdirs("dbfs://Cervix Data/same_aspect/Type_3/")
+Out[8]: True
+#see number of training examples
+data.shape
+Out[9]: (7627, 9)
+data["aspect_ratio"]= [x.height/x.width for key, x in data.iterrows()]
+data["flip"] = [0 if x.aspect_ratio > 1 else 1 for key, x in data.iterrows()]
+display(data.head())
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/0.jpg	3264	2448	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/0.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/0.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/0.jpg	1.3333333333333333	0
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/10.jpg	4128	3096	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/10.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/10.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/10.jpg	1.3333333333333333	0
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1000.jpg	3264	2448	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1000.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/1000.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/1000.jpg	1.3333333333333333	0
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1001.jpg	4128	3096	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1001.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/1001.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/1001.jpg	1.3333333333333333	0
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1003.jpg	4128	3096	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1003.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/1003.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/1003.jpg	1.3333333333333333	0
+origin	height	width	nChannels	mode	label	src_path_datalake	src_path_dbfs	dst_path	aspect_ratio	flip
+ def scaling(img,scale_x,scale_y):
+    """
+    Input an image in a numpy array, scale of the x and ydirection as a decimal
+    Outputs a numpy array as the scaled image
+    """
+    return cv2.resize(img,(scale_x, scale_y), interpolation = cv2.INTER_AREA)
+def perspectiveTransform(path,offset):
+    img = path
+    #img = cv2.imread(path)
+    cols,rows,ch = img.shape
+    pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+    pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                       [np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+    M = cv2.getPerspectiveTransform(pts1,pts2)
+
+    dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+    
+    return dst
+#display sample image
+import cv2
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+for i, image_path in data.iloc[1:2].iterrows():
+  #plt.figure(i)
+  img = cv2.imread(image_path.dst_path)
+  aug = np.random.randint(low=1,high=35,size=1)[0]
+  #print(aug)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+  img = perspectiveTransform(img,30)
+  img[:, :, 0] = 255
+  #img[:,:,1]=
+  #img[:, :, 2] = 255
+  img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
+  img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+  #img[:, :, 1] = 0
+  #img[:, :, 2] = 0
+  img = scaling(img, 150,200)
+  plt.imshow(img, cmap='gray')
+  plt.title(image_path.src_path_dbfs+ " " + str(aug))
+  #plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+  display(plt.show())
+
+for i, image_path in data.iloc[0:2].iterrows():
+  plt.figure(i)
+  img = cv2.imread(image_path.src_path_dbfs)
+  warp=np.round(img.shape[0]*0.05)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  img = scaling(img, 80,120)
+  img = np.swapaxes(img,1,0)
+  #img = perspectiveTransform(img,warp)
+  plt.imshow(np.fliplr(img))
+  plt.title(image_path.src_path_dbfs)
+  #plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+  display(plt.show())
+
+#get max width and height of images
+import numpy as np
+print(np.max(data["height"]))
+print(np.max(data["width"]))
+#see distribution of image shapes
+data.groupby(["height", "width","nChannels"])["src_path"].count().reset_index()
+#see distribution of image shapes
+data.groupby(["label"])["src_path"].count().reset_index()
+#create functions to normalize pixel size of training images
+import cv2
+def image_normalization(path, flip, width, height):
+  img = cv2.imread(path)
+  #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  #height_delta = max_height - img.shape[0]
+  #width_delta = max_width - img.shape[1]
+  #img_alter = cv2.copyMakeBorder(img,0,height_delta,0,width_delta,cv2.BORDER_CONSTANT,value=border_array)
+  #if flip == 1:
+    #img = np.swapaxes(img,1,0)
+  img_alter = scaling(img, width,height)
+  
+  return img_alter
+def save_normalized_image(src_path, dst_path, flip, size):
+  try:
+    width, height = size
+    img = image_normalization(src_path, flip, width, height)
+    cv2.imwrite(dst_path, img)
+    #print("saved")
+    return img.shape
+  
+  except:
+    return (-1,-1,-1)
+save_normalized_image("/dbfs//Cervix Data/raw/Type_1/0.jpg","/dbfs/pepar/Cervix Data/same_aspect/Type_1/0.jpg",0,(150,200))
+Out[17]: (200, 150, 3)
+data["trg_img_size"] = [(150,200) for key, x in data.iterrows()]
+spark_train = spark.createDataFrame(data)
+from pyspark.sql.types import ArrayType
+from pyspark.sql.types import IntegerType
+from pyspark.sql.functions import col
+
+save_img_norm = udf(save_normalized_image, ArrayType(IntegerType()))
+
+processed_train_images = spark_train.withColumn("norm_img_size", save_img_norm(col("src_path_dbfs"),col("dst_path"), col("flip"), col("trg_img_size")))
+processed_train_images.collect()
+Out[21]: 
+[Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/0.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/0.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/0.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/0.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/10.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/10.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/10.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/10.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1000.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1000.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1000.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1000.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1001.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1001.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1001.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1001.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1003.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1003.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1003.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1003.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1004.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1004.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1004.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1004.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1005.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1005.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1005.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1005.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1009.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1009.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1009.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1009.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1011.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1011.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1011.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1011.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1013.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1013.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1013.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1013.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1014.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1014.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1014.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1014.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1019.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1019.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1019.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1019.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/102.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/102.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/102.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/102.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1023.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1023.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1023.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1023.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1024.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1024.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1024.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1024.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1026.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1026.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1026.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1026.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1027.jpg', height=4128, width=2322, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1027.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1027.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1027.jpg', aspect_ratio=1.7777777777777777, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1032.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1032.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1032.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1032.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1033.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1033.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1033.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1033.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1036.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1036.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1036.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1036.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/104.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/104.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/104.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/104.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1040.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1040.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1040.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1040.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1047.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1047.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1047.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1047.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1054.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1054.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1054.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1054.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1056.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1056.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1056.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1056.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1058.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1058.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1058.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1058.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1059.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1059.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1059.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1059.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1060.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1060.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1060.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1060.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1061.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1061.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1061.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1061.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1066.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1066.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1066.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1066.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1069.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1069.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1069.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1069.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1070.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1070.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1070.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1070.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1071.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1071.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1071.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1071.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1074.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1074.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1074.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1074.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1075.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1075.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1075.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1075.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1077.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1077.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1077.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1077.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1079.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1079.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1079.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1079.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1081.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1081.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1081.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1081.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1087.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1087.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1087.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1087.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/109.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/109.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/109.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/109.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1091.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1091.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1091.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1091.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1093.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1093.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1093.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1093.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1100.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1100.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1100.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1100.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1104.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1104.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1104.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1104.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1105.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1105.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1105.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1105.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/111.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/111.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/111.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/111.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1110.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1110.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1110.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1110.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1111.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1111.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1111.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1111.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1117.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1117.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1117.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1117.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1121.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1121.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1121.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1121.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1123.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1123.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1123.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1123.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1128.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1128.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1128.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1128.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1131.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1131.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1131.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1131.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1133.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1133.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1133.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1133.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1134.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1134.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1134.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1134.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1136.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1136.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1136.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1136.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1139.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1139.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/1139.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/1139.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+
+*** WARNING: skipped 394624 bytes of output ***
+
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5116.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5116.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5116.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5116.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5117.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5117.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5117.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5117.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5118.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5118.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5118.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5118.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5119.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5119.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5119.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5119.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5120.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5120.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5120.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5120.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/513.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/513.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/513.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/513.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/516.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/516.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/516.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/516.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/518.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/518.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/518.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/518.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5187.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5187.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5187.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5187.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5188.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5188.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5188.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5188.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5189.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5189.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5189.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5189.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5190.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5190.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5190.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5190.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5191.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5191.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5191.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5191.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5192.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5192.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5192.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5192.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/52.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/52.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/52.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/52.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/523.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/523.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/523.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/523.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/531.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/531.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/531.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/531.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/532.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/532.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/532.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/532.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/534.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/534.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/534.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/534.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5355.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5355.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5355.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5355.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5356.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5356.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5356.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5356.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5357.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5357.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5357.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5357.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5358.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5358.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5358.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5358.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5359.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5359.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5359.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5359.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/536.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/536.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/536.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/536.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5360.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5360.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5360.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5360.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/538.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/538.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/538.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/538.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/539.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/539.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/539.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/539.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5405.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5405.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5405.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5405.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5406.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5406.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5406.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5406.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5407.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5407.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5407.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5407.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5408.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5408.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5408.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5408.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5409.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5409.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5409.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5409.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5410.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5410.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5410.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5410.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5411.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5411.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5411.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5411.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/55.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/55.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/55.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/55.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/550.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/550.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/550.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/550.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/551.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/551.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/551.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/551.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/553.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/553.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/553.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/553.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/558.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/558.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/558.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/558.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5592.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5592.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5592.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5592.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/560.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/560.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/560.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/560.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/562.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/562.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/562.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/562.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/563.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/563.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/563.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/563.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/569.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/569.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/569.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/569.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/57.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/57.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/57.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/57.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/571.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/571.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/571.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/571.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/574.jpg', height=4128, width=3096, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/574.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/574.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/574.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/575.jpg', height=4160, width=3120, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/575.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/575.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/575.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/576.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/576.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/576.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/576.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5768.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5768.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5768.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5768.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5769.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5769.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5769.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5769.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5770.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5770.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5770.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5770.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5771.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5771.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5771.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5771.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5772.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5772.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5772.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5772.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ Row(origin='dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/5773.jpg', height=3264, width=2448, nChannels=3, mode=16, label=0, src_path_datalake='/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/5773.jpg', src_path_dbfs='/dbfs/pepar/Cervix Data/raw/Type_1/5773.jpg', dst_path='/dbfs/pepar/Cervix Data/same_aspect/Type_1/5773.jpg', aspect_ratio=1.3333333333333333, flip=0, trg_img_size=Row(_1=150, _2=200), norm_img_size=[200, 150, 3]),
+ ...]
+from pyspark.sql.functions import col
+type_1 = spark_train.filter(col("label")==0)
+type_3 = spark_train.filter(col("label")==2)
+seed=100
+type3_weights = [0.35,0.65]
+flip_type3, not_flip_typ3 =type_3.randomSplit(type3_weights,seed)
+flip_image = flip_type3.unionAll(type_1)
+flip_image.count()
+Out[5]: 2216
+#display sample image
+import cv2
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+for i, image_path in data.iloc[0:2].iterrows():
+  print()
+
+
+from pyspark.sql.types import ArrayType
+from pyspark.sql.types import IntegerType
+from pyspark.sql.functions import col
+
+import numpy as np
+def flip_normalized_image(path):
+  try:
+    img = cv2.imread(path)
+    flipped_img = np.fliplr(img)
+    save_path = str(path)[:-4]+"_flipped"+str(path)[-4:]
+    cv2.imwrite(save_path, flipped_img)
+    #print("saved")
+    return flipped_img.shape
+  except:
+    return (-1,-1,-1)
+  
+flip_norm_image = udf(flip_normalized_image,ArrayType(IntegerType()))
+
+flip_image.withColumn("norm_img_size",flip_norm_image(col("dst_path"))).select("norm_img_size").distinct().collect()
+Out[16]: [Row(norm_img_size=[200, 150, 3])]
+from pyspark.sql.functions import array
+from pyspark.sql.types import ArrayType
+from pyspark.sql.types import IntegerType
+from pyspark.sql.functions import col
+from pyspark.sql.types import StringType
+def python_dim_array():
+  return [200,150,3]
+
+def flip_path(path):
+  save_path = str(path)[:-4]+"_flipped"+str(path)[-4:]
+  return save_path
+
+flipped_path = udf(flip_path, StringType())
+dim_array = udf(python_dim_array,ArrayType(IntegerType()))
+flip_image = flip_image.withColumn("dst_path",flipped_path(col("dst_path")))
+flip_image = flip_image.withColumn("norm_img_size",dim_array() )
+spark_train_post_process = spark_train.withColumn("norm_img_size",dim_array() )
+spark_train_post_process = spark_train_post_process.unionAll(flip_image)
+spark_train.count()
+Out[4]: 7627
+dbutils.fs.rm("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet", recurse=True)
+spark_train.write.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+train_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+display(train_data)
+0.00
+1.0k
+2.0k
+3.0k
+4.0k
+0.00
+1.0k
+2.0k
+3.0k
+4.0k
+0.00
+1.0k
+2.0k
+3.0k
+4.0k
+TOOLTIP
+0
+1
+2
+label
+label
+0
+1
+2
