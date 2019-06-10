@@ -1,0 +1,587 @@
+databricks-logo5.6. Training Multiple Models for Ensemble - Color & Gray - Broadcast Images(Python) Import Notebook
+Image Processing
+
+Distributed Deep Learning
+
+Get a reference dataframe of location to save model, and parameters of model training
+Define function to train model with given parameters and save model to location as specified
+Apply .rdd.map to reference dataframe (be sure the partition number is higher than 1)
+#load numpy objects
+X_train = np.load("/dbfs//Cervix Data/same_aspect/X_train.npy")
+y_train = np.load("/dbfs//Cervix Data/same_aspect/y_train.npy")
+X_val = np.load("/dbfs//Cervix Data/same_aspect/X_val.npy")
+y_val = np.load("/dbfs//Cervix Data/same_aspect/y_val.npy")
+X_train_gray = np.load("/dbfs//Cervix Data/same_aspect/X_train_gray.npy")
+y_train_gray = np.load("/dbfs//Cervix Data/same_aspect/y_train_gray.npy")
+X_val_gray = np.load("/dbfs//Cervix Data/same_aspect/X_val_gray.npy")
+y_val_gray = np.load("/dbfs//Cervix Data/same_aspect/y_val_gray.npy")
+#broadcast numpy objects
+sc_X_train = sc.broadcast(X_train)
+sc_y_train = sc.broadcast(y_train)
+sc_X_val = sc.broadcast(X_val)
+sc_y_val = sc.broadcast(y_val)
+sc_X_train_gray = sc.broadcast(X_train_gray)
+sc_y_train_gray = sc.broadcast(y_train_gray)
+sc_X_val_gray = sc.broadcast(X_val_gray)
+sc_y_val_gray = sc.broadcast(y_val_gray)
+#create directories (only run once)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model")
+#dbutils.fs.rm("dbfs://Cervix Data/old_model/history",recurse=True)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/history")
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/checkpoints")
+Out[28]: True
+#randomly sample hyperparameters
+learning_rate_vector = -4.*np.random.rand(12)
+alpha = [10**x for x in learning_rate_vector]
+#batch_size = np.random.randint(low = 32, high=64, size = 3)
+#drop_out_a = np.random.uniform(low=0.15, high=0.45, size = 2)
+#drop_out_b = np.random.uniform(low=0.15, high=0.45, size = 2)
+#create parameter dataframe (only run once)
+import pandas as pd
+parameter_list =[]
+i=0
+for a in alpha:
+  param = {}
+  param["ModelLocation"] = "/dbfs//Cervix Data/old_model/alpha_model"+str(i)+".h5"
+  param["Alpha"] = a
+  parameter_list.append(param)
+  i+=1
+pd_param = pd.DataFrame(parameter_list)
+display(pd_param.head())
+0.029297021094138447	/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5
+0.0018000793200256121	/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5
+0.03827776915210458	/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5
+0.00018025272726411538	/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5
+0.5544920815202878	/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5
+Alpha	ModelLocation
+ #read is csv that was created to run and generate multiple models
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+customSchema = StructType(
+        [StructField("BaseName", StringType(), False),
+        StructField("Model", IntegerType(), False),
+        StructField("Alpha", DoubleType(), False),
+        StructField("Type", StringType(), False),
+        StructField("ColorType", StringType(), False),
+        StructField("ModelLocation", StringType(), False),
+        StructField("Epochs", IntegerType(), False)])
+#row = models_df_tune.toPandas()
+#row["Epochs"] = 30
+models_df_tune=spark.read.format("csv").schema(customSchema).option("header","true").load("dbfs:/FileStore/tables/Book2.csv")
+display(models_df_tune)
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	1	0.000180253	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_1_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	2	0.000490559	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_2_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	3	0.001800079	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_3_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	4	0.002195178	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_4_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	5	0.002795613	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_5_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	6	0.006016897	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_6_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	7	0.018153853	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_7_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	8	0.029297021	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_8_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	9	0.038277769	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_9_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	10	0.060373849	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_10_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class1	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class1_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class2	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class2_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class3	Color	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class3_Color.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	11	0.065027415	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_11_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class3_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class1	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class1_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class2	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class2_Gray.h5	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model	12	0.554492082	Class3	Gray	/dbfs/pepar/Cervix Data/old_model/alpha_model_12_Class3_Gray.h5	0
+BaseName	Model	Alpha	Type	ColorType	ModelLocation	Epochs
+ def runDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  #image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from keras.callbacks import ModelCheckpoint
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  from keras.layers.normalization import BatchNormalization
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  
+  def min_max_normalization(x,min,max):
+    """
+    This function takes an n by m array and normalizes each value based on the average of min and max values
+    of the RBG scale (min=0 and max=255).
+
+    It return an n by m array
+    """
+    avg_value=(max+min)/2.0
+    norm_array = np.zeros(x.shape)+avg_value
+    normalized_x= (x-norm_array)/norm_array
+    return normalized_x
+  def perspectiveTransform(img_src,offset):
+      img = img_src
+      if len(img.shape) == 3:
+        cols,rows,ch = img.shape
+      else: 
+        cols,rows = img.shape
+      pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+      pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                         [np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+      M = cv2.getPerspectiveTransform(pts1,pts2)
+
+      dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+      return dst
+
+  def rotation(img, rotation_angle):
+      rows,cols = img.shape[0:2]
+
+      M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+      return cv2.warpAffine(img,M,(cols,rows))
+  
+  #train, valid = train_test_split(image_data, test_size=0.1)
+  
+  
+  #from keras.models import load_model
+  #model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  if int(row.Epochs) == 0:
+    print("Build new model")
+    model = Sequential()
+    elu=ELU()
+    #model.add(Convolution2D(5, 5, 5, batch_input_shape=(None, 450,600,3)))
+    if row.ColorType == "Color":
+      model.add(Convolution2D(5, (5, 5), batch_input_shape=(None, 200,150,3)))
+    else:
+      model.add(Convolution2D(5, (5, 5), batch_input_shape=(None, 200,150,1)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(7, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(9, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((1, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(10, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(15, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D((1, 2)))
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(18, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(30, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+
+    model.add(Flatten())
+    model.add(Dense(1000))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(800))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(700))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(600))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(500))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(400))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(300))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(200))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(100))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    model.add(Dense(50))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    """model.add(Dense(40))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(30))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(25))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(20))
+    model.add(Activation('relu'))
+    #model.add(Dropout(0.2))"""
+
+    model.add(Dense(15))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    #model.add(Dense(5))
+    #model.add(Activation('relu'))
+
+
+    model.add(Dense(2))
+    model.add(Activation('softmax'))
+  else:
+    print("Load existing model")
+    from keras.models import load_model
+    model = load_model(str(row.ModelLocation))
+
+  model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer=keras.optimizers.Adam(lr = row.Alpha),
+                metrics=['accuracy'])
+  filepath="/dbfs//Cervix Data/old_model/checkpoints/"+str(row.ModelLocation).split("/")[-1][:-3]+"_weights-{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.h5"
+  checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=0)
+  checkpoint.epochs_since_last_save  = int(row.Epochs)
+  #batch_size = 100
+  from sklearn.utils import class_weight
+
+  iters =4
+  epochs=5
+  #csv_logger = CSVLogger("/dbfs//Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_noclassweights_extradropout.csv", append=True, separator=',')
+  #callbacks_list = [csv_logger, checkpoint]
+  
+  #model.fit(X_train, y_train, batch_size = 100, epochs=epochs, class_weight = class_weights, verbose=1)
+  from keras.callbacks import CSVLogger
+
+  csv_logger = CSVLogger("/dbfs//Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_weights.csv", append=True, separator=',')
+  callbacks_list = [csv_logger, checkpoint]
+  if row.ColorType == "Color":
+    temp_x_train = sc_X_train.value
+    temp_y_train = sc_y_train.value
+    temp_y_val = sc_y_val.value
+  else:
+    temp_x_train = sc_X_train_gray.value
+    temp_y_train = sc_y_train_gray.value
+    temp_y_val = sc_y_val_gray.value
+  
+  for iter_i in range(0,iters):
+    print("Iter " + str(iter_i),str(row.ModelLocation)[:-3]+"_weights.h5")
+    images = []
+    angles = []
+    class_list = []
+    print("augmenting Data")
+    for batch_sample, label in zip(temp_x_train,temp_y_train):
+      
+      X_train = None
+      y_train = None
+      #name = batch_sample.dst_path
+      if row.ColorType == "Color":
+        height, width, channel = batch_sample.shape
+        img = batch_sample
+      else:
+        height, width = batch_sample.shape
+        channel = 1
+        img = np.resize(batch_sample, (height, width, 1))
+      
+      #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_rot= np.resize(min_max_normalization(rotation(img, rotation_angle), 0, 255), (height, width, channel))
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_aug=np.resize(min_max_normalization(perspectiveTransform(img,25), 0, 255), (height, width, channel))
+      img_flip = np.resize(min_max_normalization(np.fliplr(img), 0, 255), (height, width, channel))
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_flip_rot= np.resize(min_max_normalization(rotation(img_flip, rotation_angle), 0, 255), (height, width, channel))
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_flip_aug=np.resize(min_max_normalization(perspectiveTransform(img_flip,25), 0, 255) , (height, width, channel))
+      img = min_max_normalization(img, 0, 255)
+      #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+      center_angle = []
+      if row.Type == "Class1":
+        center_angle.append(label[0])
+        center_angle.append(label[1]+label[2])
+        images.append(img_flip)
+        angles.append(center_angle)
+        if label[0] == 1:
+          class_list.append(0)
+        else:
+          class_list.append(1)
+      elif row.Type == "Class2":
+        center_angle.append(label[1])
+        center_angle.append(label[0]+label[2])
+        if label[1] == 1:
+          class_list.append(0)
+        else:
+          class_list.append(1)
+      else:
+        center_angle.append(label[2])
+        center_angle.append(label[0]+label[1])
+        if label[2] == 1:
+          class_list.append(0)
+        else:
+          class_list.append(1)
+      #center_angle[batch_sample.label] = 1
+      images.append(img)
+      images.append(img_rot)
+      images.append(img_aug)
+      
+      images.append(img_flip_rot)
+      images.append(img_flip_aug)
+      angles.append(center_angle)
+      
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      #images.append(np.fliplr(center_image))
+      #angles.append([1-center_angle,center_angle])
+    temp = []
+    for label in temp_y_val:
+      
+      y_val = None
+
+      y_angle = []
+      if row.Type == "Class1":
+        y_angle.append(label[0])
+        y_angle.append(label[1]+label[2])
+        images.append(img_flip)
+        angles.append(center_angle)
+      elif row.Type == "Class2":
+        y_angle.append(label[1])
+        y_angle.append(label[0]+label[2])
+      else:
+        y_angle.append(label[2])
+        y_angle.append(label[0]+label[1])
+      #center_angle[batch_sample.label] = 1
+
+      temp.append(y_angle)
+      #images.append(np.fliplr(center_image))
+      #angles.append([1-center_angle,center_angle])
+    y_val = np.array(temp)
+    X_train = np.array(images)
+    y_train = np.array(angles)
+    X_train, y_train = shuffle(X_train, y_train)
+    print(sc_X_train.value.shape, X_train.shape)
+    class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(class_list),
+                                                 class_list)
+    if row.ColorType == "Color":
+      model.fit(X_train, y_train, batch_size = 100, epochs=row.Epochs+(epochs*iter_i)+epochs, verbose=0,callbacks=callbacks_list, validation_data=(sc_X_val.value, y_val), initial_epoch=row.Epochs+(epochs*iter_i), class_weight = class_weights)
+    else:
+      model.fit(X_train, y_train, batch_size = 100, epochs=row.Epochs+(epochs*iter_i)+epochs, verbose=0,callbacks=callbacks_list, validation_data=(np.resize(sc_X_val.value, (763,200,150,1)), y_val), initial_epoch=row.Epochs+(epochs*iter_i), class_weight = class_weights)
+    
+    
+  model.save(str(row.ModelLocation)[:-3]+"_weights.h5")
+  
+  '''if row.ColorType == "Color":
+    score = model.evaluate(sc_X_val.value, y_val,verbose=0)
+  else:
+    score = model.evaluate(np.resize(sc_X_val.value, (763,200,150,1)), y_val,verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])'''
+  acc = -1.0
+  loss = -1.0
+  return(str(row.ModelLocation)[:-3]+"_weights.h5", row.Alpha,  loss, acc, row.Epochs+(epochs*iters))
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+   StructField("Epochs", IntegerType(), False)
+                    ])
+#models_df_tune.repartition(48).count()
+Out[11]: 12
+models_df_tune = models_df_tune.repartition(18)
+models_df_tune.cache()
+Out[8]: DataFrame[BaseName: string, Model: int, Alpha: double, Type: string, ColorType: string, ModelLocation: string, Epochs: int]
+#run the distributed training function on each row
+results_df = models_df_tune.rdd.map(runDLModelHyper).toDF(schema).toPandas()
+org.apache.spark.SparkException: Job aborted due to stage failure: Task 3 in stage 2.0 failed 4 times, most recent failure: Lost task 3.3 in stage 2.0 (TID 32, 172.41.2.6, executor 1): org.apache.spark.api.python.PythonException: Traceback (most recent call last):
+# Spark having lazy evaluation, the <display> action actually 'runs' the compute
+display(results_df)
+NameError: name 'results_df' is not defined
+#dbutils.fs.rm("dbfs://Cervix Data/params/params1_v7.parquet", recurse=True)
+#spark.createDataFrame(results_df).write.parquet("dbfs://Cervix Data/params/params1_v11.parquet")
+spark_params = spark.createDataFrame(results_df)
+params_path = "dbfs://Cervix Data/old_model/params1_noclassweights_extradropout_gray.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+#read in checkpoint history to see model training results
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+customSchema = StructType(
+        [StructField("epoch", IntegerType(), False),
+        StructField("acc", DoubleType(), False),
+        StructField("loss", DoubleType(), False),
+        StructField("val_acc", DoubleType(), False),
+        StructField("val_loss", DoubleType(), False)])
+epoch_data = spark.read.format("csv").schema(customSchema).option("header","true").load("dbfs://Cervix Data/old_model/history/")
+epoch_data = epoch_data.withColumn('FILEPATH',input_file_name())
+display(epoch_data)
+EPOCH
+0
+20
+40
+60
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+FILEPATH
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+Showing the first 1000 rows.
+
+Only showing the first twenty series.
+
