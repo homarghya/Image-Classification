@@ -1,0 +1,312 @@
+databricks-logo1. Image Metadata - Clean(Python) Import Notebook
+Image Metadata
+This notebook loads image metadata and label for Cervix Classification. The data comes from the Intel & MobileODT Cervical Cancer Screening and a detailed explanation of the images and drive behind the competition can be found here.
+
+Create Spark ImageSchema dataframe and label based on directory
+from pyspark.ml.image import ImageSchema
+from sparkdl.image import imageIO
+from pyspark.sql.functions import lit
+import os
+cars_dir = os.listdir("/dbfs/mnt/images/Cervix Data/train_data/train/")
+print(cars_dir)
+files = []
+i = 0
+for folder in cars_dir:
+  if folder not in (".DS_Store","data_uri.parquet","data_image.parquet"):
+    if i ==0:
+      image_df = ImageSchema.readImages("/mnt/images/Cervix Data/train_data/train/"+folder).withColumn("label", lit(i))
+    else:
+      image_df1 = ImageSchema.readImages("/mnt/images/Cervix Data/train_data/train/"+folder).withColumn("label", lit(i))
+      image_df = image_df.unionAll(image_df1)
+    i=i+1
+Using TensorFlow backend.
+['.DS_Store', 'Type_1', 'Type_2', 'Type_3', 'data_image.parquet', 'data_uri.parquet']
+#select image detail columns
+image_df = image_df.select("image.origin","image.height","image.width","image.nChannels","image.mode","label")
+#create pandas dataframe of training metadata from imageSchema
+import pandas as pd
+data = image_df.toPandas()
+#veiw head of pandas dataframe
+data.head()
+Out[5]: 
+                                              origin  height  ...    mode  label
+0  dbfs:/mnt/images/Cervix Data/train_data/train/...    3264  ...      16      0
+1  dbfs:/mnt/images/Cervix Data/train_data/train/...    4128  ...      16      0
+2  dbfs:/mnt/images/Cervix Data/train_data/train/...    3264  ...      16      0
+3  dbfs:/mnt/images/Cervix Data/train_data/train/...    4128  ...      16      0
+4  dbfs:/mnt/images/Cervix Data/train_data/train/...    4128  ...      16      0
+
+[5 rows x 6 columns]
+#write training image metadata to csv in data lake
+data[data["height"]!=-1].to_csv("/dbfs/mnt/images/Cervix Data/train_data/train/train_image_metadata.csv", header=True, index=False)
+Do the same for the test examples
+#create pandas dataframe from imageSchema for test data
+test_df = ImageSchema.readImages("/mnt/images/Cervix Data/test_data/test")
+test_df = test_df.select("image.origin","image.height","image.width","image.nChannels","image.mode")
+data_test = test_df.toPandas()
+#create image name field to join label on
+data_test["image_name"]=[str(x.origin).split("/")[-1] for key, x in data_test.iterrows()]
+#see dataframe shape for joining purposes
+data_test.shape
+Out[37]: (512, 6)
+#read test image labels
+test_label = pd.read_csv("/dbfs/mnt/images/Cervix Data/test_data/solution_stg1_release.csv",header=0)
+test_label.head()
+Out[25]: 
+  image_name  Type_1  Type_2  Type_3
+0      0.jpg       0       1       0
+1      1.jpg       0       1       0
+2      2.jpg       1       0       0
+3      3.jpg       0       0       1
+4      4.jpg       0       0       1
+#merge test data label with metadata
+data_test_labelled = data_test.merge(test_label, on="image_name", how="inner")
+data_test_labelled.shape
+Out[31]: (512, 9)
+#dispaly test image metadata with label
+display(data_test_labelled.head())
+dbfs:/mnt/images/Cervix Data/test_data/test/0.jpg	4128	3096	3	16	0.jpg	0	1	0
+dbfs:/mnt/images/Cervix Data/test_data/test/1.jpg	3264	2448	3	16	1.jpg	0	1	0
+dbfs:/mnt/images/Cervix Data/test_data/test/10.jpg	4128	3096	3	16	10.jpg	0	1	0
+dbfs:/mnt/images/Cervix Data/test_data/test/100.jpg	4128	3096	3	16	100.jpg	1	0	0
+dbfs:/mnt/images/Cervix Data/test_data/test/101.jpg	3264	2448	3	16	101.jpg	0	1	0
+origin	height	width	nChannels	mode	image_name	Type_1	Type_2	Type_3
+ #add os path structure to dataframe
+data_test_labelled["path"]=["/dbfs"+x.origin[5:] for key, x in data_test_labelled.iterrows()]
+display(data_test_labelled.head())
+dbfs:/mnt/images/Cervix Data/test_data/test/0.jpg	4128	3096	3	16	0.jpg	0	1	0	/dbfs/mnt/images/Cervix Data/test_data/test/0.jpg
+dbfs:/mnt/images/Cervix Data/test_data/test/1.jpg	3264	2448	3	16	1.jpg	0	1	0	/dbfs/mnt/images/Cervix Data/test_data/test/1.jpg
+dbfs:/mnt/images/Cervix Data/test_data/test/10.jpg	4128	3096	3	16	10.jpg	0	1	0	/dbfs/mnt/images/Cervix Data/test_data/test/10.jpg
+dbfs:/mnt/images/Cervix Data/test_data/test/100.jpg	4128	3096	3	16	100.jpg	1	0	0	/dbfs/mnt/images/Cervix Data/test_data/test/100.jpg
+dbfs:/mnt/images/Cervix Data/test_data/test/101.jpg	3264	2448	3	16	101.jpg	0	1	0	/dbfs/mnt/images/Cervix Data/test_data/test/101.jpg
+origin	height	width	nChannels	mode	image_name	Type_1	Type_2	Type_3	path
+ #write test image data to csv file in data lake
+data_test_labelled.to_csv("/dbfs/mnt/images/Cervix Data/test_data/test_image_metadata.csv",header=True,index=False)
+Explore Training data
+#read training metadata in
+image_metadata = spark.read.format("csv").option("inferSchema","true").option("header","true").load("dbfs:/mnt/images/Cervix Data/train_data/train/train_image_metadata.csv")
+#create new aspect ratio column
+from pyspark.sql.functions import col
+
+image_metadata = image_metadata.withColumn("ratio", col("height")/col("width"))
+display(image_metadata)
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+0.00
+200
+400
+600
+800
+1.0k
+1.2k
+1.4k
+1.6k
+1.8k
+2.0k
+2.2k
+2.4k
+2.6k
+2.8k
+3.0k
+3.2k
+3.4k
+3.6k
+3.8k
+4.0k
+0.748062015503876
+0.75
+1.3333333333333333
+1.7777777777777777
+TOOLTIP
+3088
+480
+2448
+3096
+640
+3264
+4128
+4160
+ratio
+ratio
+height
+3088
+480
+2448
+3096
+640
+3264
+4128
+4160
