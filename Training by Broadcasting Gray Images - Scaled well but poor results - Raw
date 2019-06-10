@@ -1,0 +1,1081 @@
+databricks-logox5.5. Training by Broadcasting Gray Images - Scaled well but poor results - Raw(Python) Import Notebook
+Image Processing
+
+Distributed Deep Learning
+
+Get a reference dataframe of location to save model, and parameters of model training
+Define function to train model with given parameters and save model to location as specified
+Apply .rdd.map to reference dataframe (be sure the partition number is higher than 1)
+import pandas as pd
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+image_data.shape
+Out[1]: (7627, 9)
+ignore_wrong_labal = [x not in ["/dbfs//Cervix Data/same_aspect/Type_1/80.jpg", "/dbfs//Cervix Data/same_aspect/Type_3/968.jpg","/dbfs//Cervix Data/same_aspect/Type_3/1120.jpg"] for x in image_data["dst_path"]]
+image_data = image_data[ignore_wrong_labal]
+print(image_data.shape)
+image_data.to_json("/dbfs//Cervix Data/params/params1.json")
+(7625, 9)
+import numpy as np
+import keras
+from sklearn.utils import shuffle
+import numpy as np
+import cv2
+Using TensorFlow backend.
+from PIL import Image 
+from pyspark.sql.types import StringType, StructType, DoubleType, StructField,IntegerType
+import matplotlib.pyplot as plt
+
+from __future__ import print_function
+import keras
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D
+from keras import backend as K
+import pandas as pd
+from sklearn.model_selection import train_test_split
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+images = []
+angles = []
+i =0
+for key, batch_sample in train.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_rot= rotation(img, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_aug=perspectiveTransform(img,aug)
+  #img_flip = np.fliplr(img)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_flip_rot= rotation(img_flip, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_flip_aug=perspectiveTransform(img_flip,aug)  
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  #images.append(img_rot)
+  #images.append(img_aug)
+  #images.append(img_flip)
+  #images.append(img_flip_rot)
+  #images.append(img_flip_aug)
+  angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_train = np.array(images)
+y_train = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+800
+900
+1000
+1100
+1200
+1300
+1400
+1500
+1600
+1700
+1800
+1900
+2000
+2100
+2200
+2300
+2400
+2500
+2600
+2700
+2800
+2900
+3000
+3100
+3200
+3300
+3400
+3500
+3600
+3700
+3800
+3900
+4000
+4100
+4200
+4300
+4400
+4500
+4600
+4700
+4800
+4900
+5000
+5100
+5200
+5300
+5400
+5500
+5600
+5700
+5800
+5900
+6000
+6100
+6200
+6300
+6400
+6500
+6600
+6700
+6800
+def min_max_normalization(x,min,max):
+  """
+  This function takes an n by m array and normalizes each value based on the average of min and max values
+  of the RBG scale (min=0 and max=255).
+
+  It return an n by m array
+  """
+  avg_value=(max+min)/2.0
+  norm_array = np.zeros(x.shape)+avg_value
+  normalized_x= (x-norm_array)/norm_array
+  return normalized_x
+images = []
+angles = []
+i=0
+for key, batch_sample in valid.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = min_max_normalization(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  angles.append(center_angle)
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_val = np.array(images)
+y_val = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+np.save("/dbfs//Cervix Data/same_aspect/X_train_gray.npy", X_train)
+np.save("/dbfs//Cervix Data/same_aspect/y_train_gray.npy", y_train)
+np.save("/dbfs//Cervix Data/same_aspect/X_val_gray.npy", X_val)
+np.save("/dbfs//Cervix Data/same_aspect/y_val_gray.npy", y_val)
+X_train = np.load("/dbfs//Cervix Data/same_aspect/X_train_gray.npy")
+y_train = np.load("/dbfs//Cervix Data/same_aspect/y_train_gray.npy")
+X_val = np.load("/dbfs//Cervix Data/same_aspect/X_val_gray.npy")
+y_val = np.load("/dbfs//Cervix Data/same_aspect/y_val_gray.npy")
+sc_X_train = sc.broadcast(X_train)
+sc_y_train = sc.broadcast(y_train)
+sc_X_val = sc.broadcast(X_val)
+sc_y_val = sc.broadcast(y_val)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model")
+dbutils.fs.rm("dbfs://Cervix Data/old_model/history",recurse=True)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/history")
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/checkpoints")
+Out[28]: True
+learning_rate_vector = -4.*np.random.rand(12)
+alpha = [10**x for x in learning_rate_vector]
+#batch_size = np.random.randint(low = 32, high=64, size = 3)
+#drop_out_a = np.random.uniform(low=0.15, high=0.45, size = 2)
+#drop_out_b = np.random.uniform(low=0.15, high=0.45, size = 2)
+import pandas as pd
+parameter_list =[]
+i=0
+for a in alpha:
+  param = {}
+  param["ModelLocation"] = "/dbfs//Cervix Data/old_model/alpha_model"+str(i)+".h5"
+  param["Alpha"] = a
+  parameter_list.append(param)
+  i+=1
+pd_param = pd.DataFrame(parameter_list)
+display(pd_param.head())
+0.029297021094138447	/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5
+0.0018000793200256121	/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5
+0.03827776915210458	/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5
+0.00018025272726411538	/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5
+0.5544920815202878	/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5
+Alpha	ModelLocation
+ spark_params = spark.createDataFrame(pd_param)
+params_path = "dbfs://Cervix Data/old_model/params1.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+models_df_tune=spark.read.parquet("dbfs://Cervix Data/old_model/params1_gray.parquet")
+#models_df_tune.cache()
+#models_df_tune = models_df_tune.filter(models_df_tune.Loss < 2.1)
+row = models_df_tune.toPandas()
+row["Epochs"] = [30, 15, 15, 15, 30,30,30,30,15, 30,30,60]
+row.head()
+Out[6]: 
+                                       ModelLocation   ...    Epochs
+0  /dbfs/pepar/Cervix Data/old_model/alpha_model7.h5   ...        30
+1  /dbfs/pepar/Cervix Data/old_model/alpha_model8.h5   ...        15
+2  /dbfs/pepar/Cervix Data/old_model/alpha_model9.h5   ...        15
+3  /dbfs/pepar/Cervix Data/old_model/alpha_model1.h5   ...        15
+4  /dbfs/pepar/Cervix Data/old_model/alpha_model6.h5   ...        30
+
+[5 rows x 5 columns]
+display(row)
+/dbfs/pepar/Cervix Data/old_model/alpha_model7.h5	0.018153853060319806	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model8.h5	0.06037384940601332	7.499244941171469	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model9.h5	0.0027956130206057378	1.001640206630077	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5	0.0018000793200256121	1.0018321904567404	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model6.h5	0.0021951778977475182	1.0018467908605524	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5	0.5544920815202878	1.1920930376163597e-7	0.1782437746326389	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5	0.03827776915210458	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model5.h5	0.06502741464909513	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5	0.029297021094138447	7.499244941171469	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model10.h5	0.006016896944237318	1.0012623697402123	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5	0.00018025272726411538	2.9099244530829034	0.5963302746044074	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model11.h5	0.0004905591519111259	2.6373737111472835	0.5923984264015058	60
+ModelLocation	Alpha	Loss	Accuracy	Epochs
+ models_df_tune.count()
+Out[19]: 12
+spark_params = spark.createDataFrame(row)
+params_path = "dbfs://Cervix Data/old_model/params1.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+models_df_tune=spark.read.parquet("dbfs://Cervix Data/old_model/params1.parquet")
+models_df_tune=models_df_tune.filter(models_df_tune.Alpha<0.0005)
+#dbutils.fs.rm("dbfs:/pepar/Cervix Data/old_model/history/alpha_model1_noclassweights_extradropout_gray.csv")
+#dbutils.fs.rm("dbfs:/pepar/Cervix Data/old_model/history/alpha_model8_noclassweights_extradropout_gray.csv")
+Out[10]: True
+#row = models_df_tune.toPandas()
+#row["Epochs"] = 30
+models_df_tune=spark.createDataFrame(row)
+display(models_df_tune)
+/dbfs/pepar/Cervix Data/old_model/alpha_model7.h5	0.018153853060319806	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model8.h5	0.06037384940601332	7.499244941171469	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model9.h5	0.0027956130206057378	1.001640206630077	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5	0.0018000793200256121	1.0018321904567404	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model6.h5	0.0021951778977475182	1.0018467908605524	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5	0.5544920815202878	1.1920930376163597e-7	0.1782437746326389	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5	0.03827776915210458	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model5.h5	0.06502741464909513	7.499244941171469	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5	0.029297021094138447	7.499244941171469	0.5347313244252186	15
+/dbfs/pepar/Cervix Data/old_model/alpha_model10.h5	0.006016896944237318	1.0012623697402123	0.5347313244252186	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5	0.00018025272726411538	2.9099244530829034	0.5963302746044074	30
+/dbfs/pepar/Cervix Data/old_model/alpha_model11.h5	0.0004905591519111259	2.6373737111472835	0.5923984264015058	60
+ModelLocation	Alpha	Loss	Accuracy	Epochs
+ def runDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs:/pepar/Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from keras.callbacks import ModelCheckpoint
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  from keras.layers.normalization import BatchNormalization
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  
+  def min_max_normalization(x,min,max):
+    """
+    This function takes an n by m array and normalizes each value based on the average of min and max values
+    of the RBG scale (min=0 and max=255).
+
+    It return an n by m array
+    """
+    avg_value=(max+min)/2.0
+    norm_array = np.zeros(x.shape)+avg_value
+    normalized_x= (x-norm_array)/norm_array
+    return normalized_x
+  def perspectiveTransform(img_src,offset):
+      img = img_src
+      if len(img.shape) == 3:
+        cols,rows,ch = img.shape
+      else: 
+        cols,rows = img.shape
+      pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+      pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                         [np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+      M = cv2.getPerspectiveTransform(pts1,pts2)
+
+      dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+      return dst
+
+  def rotation(img, rotation_angle):
+      rows,cols = img.shape[0:2]
+
+      M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+      return cv2.warpAffine(img,M,(cols,rows))
+  
+  train, valid = train_test_split(image_data, test_size=0.1)
+  
+  
+  #from keras.models import load_model
+  #model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  if int(row.Epochs) == 0:
+    print("Build new model")
+    model = Sequential()
+    elu=ELU()
+    #model.add(Convolution2D(5, 5, 5, batch_input_shape=(None, 450,600,3)))
+
+    model.add(Convolution2D(5, (5, 5), batch_input_shape=(None, 200,150,1)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(7, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(9, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((1, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(10, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(15, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D((1, 2)))
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(18, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(30, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+
+    model.add(Flatten())
+    model.add(Dense(1000))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(800))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(700))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(600))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(500))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(400))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(300))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(200))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(100))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    model.add(Dense(50))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    """model.add(Dense(40))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(30))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(25))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(20))
+    model.add(Activation('relu'))
+    #model.add(Dropout(0.2))"""
+
+    model.add(Dense(15))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    #model.add(Dense(5))
+    #model.add(Activation('relu'))
+
+
+    model.add(Dense(3))
+    model.add(Activation('softmax'))
+  else:
+    print("Load existing model")
+    from keras.models import load_model
+    model = load_model(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout_gray.h5")
+    model = load_model(str(row.ModelLocation))
+
+  model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer=keras.optimizers.Adam(lr = row.Alpha),
+                metrics=['accuracy'])
+  filepath="/dbfs//Cervix Data/old_model/checkpoints/"+str(row.ModelLocation).split("/")[-1][:-3]+"-{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}_noclassweights_extradropout_gray.h5"
+  checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=0)
+  checkpoint.epochs_since_last_save  = int(row.Epochs)
+  #batch_size = 100
+  from sklearn.utils import class_weight
+
+  class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(train.label),
+                                                 train.label)
+  iters =6
+  epochs=5
+  #csv_logger = CSVLogger("/dbfs/pepar/Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_noclassweights_extradropout.csv", append=True, separator=',')
+  #callbacks_list = [csv_logger, checkpoint]
+  
+  #model.fit(X_train, y_train, batch_size = 100, epochs=epochs, class_weight = class_weights, verbose=1)
+  from keras.callbacks import CSVLogger
+
+  csv_logger = CSVLogger("/dbfs//Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_noclassweights_extradropout_gray.csv", append=True, separator=',')
+  callbacks_list = [csv_logger, checkpoint]
+  
+  
+  for iter_i in range(0,iters):
+    print("Iter " + str(iter_i))
+    images = []
+    angles = []
+    print("augmenting Data")
+    for batch_sample, label in zip(sc_X_train.value,sc_y_train.value):
+      
+      X_train = None
+      y_train = None
+      #name = batch_sample.dst_path
+      height, width = batch_sample.shape
+      img = np.resize(batch_sample, (height, width, 1))
+      #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_rot= np.resize(min_max_normalization(rotation(img, rotation_angle), 0, 255), (height, width, 1))
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_aug=np.resize(min_max_normalization(perspectiveTransform(img,30), 0, 255), (height, width, 1))
+      img_flip = np.resize(min_max_normalization(np.fliplr(img), 0, 255), (height, width, 1))
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_flip_rot= np.resize(min_max_normalization(rotation(img_flip, rotation_angle), 0, 255), (height, width, 1))
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_flip_aug=np.resize(min_max_normalization(perspectiveTransform(img_flip,30), 0, 255) , (height, width, 1))
+      img = min_max_normalization(img, 0, 255)
+      #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+      center_angle = []
+      if row.Type == "Class1":
+        center_angle.(label[0])
+        center_angle.(label[1]+label[2])
+      elif row.Type == "Class2":
+        center_angle.(label[1])
+        center_angle.(label[0]+label[2])
+      else:
+        center_angle.(label[2])
+        center_angle.(label[0]+label[1])
+      #center_angle[batch_sample.label] = 1
+      images.append(img)
+      images.append(img_rot)
+      images.append(img_aug)
+      images.append(img_flip)
+      images.append(img_flip_rot)
+      images.append(img_flip_aug)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      #images.append(np.fliplr(center_image))
+      #angles.append([1-center_angle,center_angle])
+
+    X_train = np.array(images)
+    y_train = np.array(angles)
+    X_train, y_train = shuffle(X_train, y_train)
+    model.fit(X_train, y_train, batch_size = 100, epochs=row.Epochs+(epochs*iter_i)+epochs, verbose=1,callbacks=callbacks_list, validation_data=(np.resize(sc_X_val.value, (763,200,150,1)), y_val), initial_epoch=row.Epochs+(epochs*iter_i))
+    
+  model.save(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout_gray.h5")
+  
+  
+  score = model.evaluate(np.resize(sc_X_val.value, (763,200,150,1)), sc_y_val.value,verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout_gray.h5", row.Alpha,  loss, acc, row.Epochs+(epochs*iters))
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+   StructField("Epochs", IntegerType(), False)
+                    ])
+models_df_tune.repartition(48).count()
+Out[11]: 12
+#models_df_tune = models_df_tune.repartition(12)
+models_df_tune.cache()
+Out[12]: DataFrame[ModelLocation: string, Alpha: double, Loss: double, Accuracy: double, Epochs: bigint]
+results_df = models_df_tune.rdd.map(runDLModelHyper).toDF(schema).toPandas()
+# Spark having lazy evaluation, the <display> action actually 'runs' the compute
+display(results_df)
+#dbutils.fs.rm("dbfs://Cervix Data/params/params1_v7.parquet", recurse=True)
+#spark.createDataFrame(results_df).write.parquet("dbfs://Cervix Data/params/params1_v11.parquet")
+spark_params = spark.createDataFrame(results_df)
+params_path = "dbfs://Cervix Data/old_model/params1_noclassweights_extradropout_gray.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+customSchema = StructType(
+        [StructField("epoch", IntegerType(), False),
+        StructField("acc", DoubleType(), False),
+        StructField("loss", DoubleType(), False),
+        StructField("val_acc", DoubleType(), False),
+        StructField("val_loss", DoubleType(), False)])
+epoch_data = spark.read.format("csv").schema(customSchema).option("header","true").load("dbfs://Cervix Data/old_model/history/")
+epoch_data = epoch_data.withColumn('FILEPATH',input_file_name())
+display(epoch_data)
+EPOCH
+0
+20
+40
+60
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+FILEPATH
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+Showing the first 1000 rows.
+
+Only showing the first twenty series.
+
+ (x_train, y_train), (x_test, y_test) = mnist.load_data()
+Downloading data from https://s3.amazonaws.com/img-datasets/mnist.npz
+
+    8192/11490434 [..............................] - ETA: 34s
+   57344/11490434 [..............................] - ETA: 14s
+  106496/11490434 [..............................] - ETA: 13s
+  196608/11490434 [..............................] - ETA: 10s
+  319488/11490434 [..............................] - ETA: 7s 
+  475136/11490434 [>.............................] - ETA: 6s
+  679936/11490434 [>.............................] - ETA: 5s
+  958464/11490434 [=>............................] - ETA: 4s
+ 1310720/11490434 [==>...........................] - ETA: 3s
+ 1744896/11490434 [===>..........................] - ETA: 2s
+ 2301952/11490434 [=====>........................] - ETA: 2s
+ 2981888/11490434 [======>.......................] - ETA: 1s
+ 3801088/11490434 [========>.....................] - ETA: 1s
+ 4759552/11490434 [===========>..................] - ETA: 0s
+ 5849088/11490434 [==============>...............] - ETA: 0s
+ 7110656/11490434 [=================>............] - ETA: 0s
+ 8568832/11490434 [=====================>........] - ETA: 0s
+10338304/11490434 [=========================>....] - ETA: 0s
+11493376/11490434 [==============================] - 1s 0us/step
+x_test.shape
+Cancelled
+row.iloc[1]
+Out[18]: 
+ModelLocation    /dbfs/pepar/Cervix Data/old_model/alpha_model8.h5
+Alpha                                                    0.0603738
+Loss                                                       7.49924
+Accuracy                                                  0.534731
+Epochs                                                           0
+Name: 1, dtype: object
+runDLModelHyper(row.iloc[1])
+Build new model
+Iter 0
+augmenting Data
+NameError: name 'sc_X_train' is not defined
+image_read("/dbfs//Cervix Data/same_aspect/Type_2/115.jpg",0,0).shape
+Cancelled
+
+display(spark_image_data)
+Cancelled
+image_data = spark_image_data.toPandas()
+Cancelled
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+import pandas as pd
+train, valid = train_test_split(image_data, test_size=0.1)
+
+train_reg = train.copy()
+train_reg["augmentation"] = 0
+
+train_rot = train.copy()
+train_rot["augmentation"] = 1
+
+train_warp = train.copy()
+train_warp["augmentation"] = 2
+
+train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+train_flip = train_aug.copy()
+train_flip["flip"] = 1
+
+train_nonflip = train_aug.copy()
+train_nonflip["flip"] = 0
+
+train_final = shuffle(pd.concat([train_nonflip,train_flip]),random_state =100)
+valid["flip"] = 0
+valid["augmentation"] = 0
+Cancelled
+spark_train_data = spark.createDataFrame(train_final)
+Cancelled
+def resultDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  
+  from keras.models import load_model
+  model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  score_train = model.evaluate_generator(train_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  train_acc = float(score_train[1])
+  train_loss = float(score_train[0])
+  score = model.evaluate_generator(val_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-7]+"_v11.h5", row.Alpha, row.BatchSize, row.DropoutA, row.DropoutB, loss, acc,train_loss,train_acc)
+Cancelled
+display(models_df_tune)
+Cancelled
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("BatchSize", IntegerType(), False),
+  StructField("DropoutA", DoubleType(), False),
+  StructField("DropoutB", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+  StructField("TrainLoss", DoubleType(), False),
+  StructField("TrainAccuracy", DoubleType(), False)
+                    ])
+Cancelled
+models_df_tune = models_df_tune.filter(models_df_tune.ModelLocation != "/dbfs//Cervix Data/params/paramodel7_v10.h5")
+pd_results_df = models_df_tune.rdd.map(resultDLModelHyper).toDF(schema).toPandas()
+Cancelled
+resultDLModelHyper(row.iloc[0])
+Cancelled
+display(pd_results_df)
+Cancelled
+spark.createDataFrame(pd_results_df).write.parquet("dbfs://Cervix Data/params/params1_v11_trainresults.parquet")
+Cancelled
+import numpy as np
+import cv2
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+def scaling(img,scale_x,scale_y):
+      """
+      Input an image in a numpy array, scale of the x and ydirection as a decimal
+      Outputs a numpy array as the scaled image
+      """
+      return cv2.resize(img,None,fx=scale_x, fy=scale_y, interpolation = cv2.INTER_LINEAR)
+def min_max_normalization(x,min,max):
+    """
+    This function takes an n by m array and normalizes each value based on the average of min and max values
+    of the RBG scale (min=0 and max=255).
+
+    It return an n by m array
+    """
+    avg_value=(max+min)/2.0
+    norm_array = np.zeros(x.shape)+avg_value
+    normalized_x= (x-norm_array)/norm_array
+    return normalized_x
+
+def perspectiveTransform(img_src,offset):
+    img = img_src
+    cols,rows,ch = img.shape
+    pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+    pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                       [np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+    M = cv2.getPerspectiveTransform(pts1,pts2)
+
+    dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+    return dst
+
+def rotation(img, rotation_angle):
+    rows,cols = img.shape[0:2]
+
+    M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+    return cv2.warpAffine(img,M,(cols,rows))
+
+def image_read(path, flip, aug):
+  img = cv2.imread(path)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  if flip == 1:
+    img = np.fliplr(img)
+
+  if aug==0:
+      img = img
+  elif aug==1:
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img= rotation(img, rotation_angle)
+  elif aug==2:
+      aug = np.random.randint(low=0,high=35,size=1)
+      img=perspectiveTransform(img,35)
+
+  #height_delta = max_height - img.shape[0]
+  #width_delta = max_width - img.shape[1]
+  return min_max_normalization(img,0,255)
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+
+train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+
+train_reg = train.copy()
+train_reg["augmentation"] = 0
+
+train_rot = train.copy()
+train_rot["augmentation"] = 1
+
+train_warp = train.copy()
+train_warp["augmentation"] = 2
+
+train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+train_flip = train_aug.copy()
+train_flip["flip"] = 1
+
+train_nonflip = train_aug.copy()
+train_nonflip["flip"] = 0
+
+train_final = shuffle(pd.concat([train_nonflip,train_flip]))
+valid["flip"] = 0
+valid["augmentation"] = 0
+/local_disk0/tmp/1551719388564-0/PythonShell.py:22: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  # the backend will not be properly initialized to use AGG.
+/local_disk0/tmp/1551719388564-0/PythonShell.py:23: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  import matplotlib as mpl
+images = []
+angles = []
+i =0
+for key, batch_sample in train.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_rot= rotation(img, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_aug=perspectiveTransform(img,aug)
+  #img_flip = np.fliplr(img)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_flip_rot= rotation(img_flip, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_flip_aug=perspectiveTransform(img_flip,aug)  
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  #images.append(img_rot)
+  #images.append(img_aug)
+  #images.append(img_flip)
+  #images.append(img_flip_rot)
+  #images.append(img_flip_aug)
+  angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_train = np.array(images)
+y_train = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+800
+900
+1000
+1100
+1200
+1300
+1400
+1500
+1600
+1700
+1800
+1900
+2000
+2100
+2200
+2300
+2400
+2500
+2600
+2700
+2800
+2900
+3000
+3100
+3200
+3300
+3400
+3500
+3600
+3700
+3800
+3900
+4000
+4100
+4200
+4300
+4400
+4500
+4600
+4700
+4800
+4900
+5000
+5100
+5200
+5300
+5400
+5500
+5600
+5700
+5800
+5900
+6000
+6100
+6200
+6300
+6400
+6500
+6600
+6700
+6800
+images = []
+angles = []
+i=0
+for key, batch_sample in valid.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = min_max_normalization(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  angles.append(center_angle)
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_val = np.array(images)
+y_val = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+np.save("/dbfs//Cervix Data/same_aspect/X_train.npy", X_train)
+np.save("/dbfs//Cervix Data/same_aspect/y_train.npy", y_train)
+np.save("/dbfs//Cervix Data/same_aspect/X_val.npy", X_val)
+np.save("/dbfs//Cervix Data/same_aspect/y_val.npy", y_val)
+X_train = np.load("/dbfs//Cervix Data/same_aspect/X_train.npy")
+y_train = np.load("/dbfs//Cervix Data/same_aspect/y_train.npy")
+X_val = np.load("/dbfs//Cervix Data/same_aspect/X_val.npy")
+y_val = np.load("/dbfs//Cervix Data/same_aspect/y_val.npy")
+
+sc_X_train = sc.broadcast(X_train)
+sc_y_train = sc.broadcast(y_train)
+sc_X_val = sc.broadcast(X_val)
+sc_y_val = sc.broadcast(y_val)
+display(train.iloc[0:15])
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/5126.jpg	3264	2448	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/5126.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/5126.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/5126.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/3353.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/3353.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/3353.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/3353.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/850.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/850.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/850.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/850.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/6697.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/6697.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/6697.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/6697.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/2806.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/2806.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/2806.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/2806.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/1411.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/1411.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/1411.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/1411.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/4983.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/4983.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/4983.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/4983.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/234.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/234.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/234.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/234.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/4273.jpg	3264	2448	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/4273.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/4273.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/4273.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/1458.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/1458.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/1458.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/1458.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/1009.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/1009.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/1009.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/1009.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/3479.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/3479.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/3479.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/3479.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/2946.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/2946.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/2946.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/2946.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/77.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/77.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/77.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/77.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/471.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/471.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/471.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/471.jpg
+origin	height	width	nChannels	mode	label	src_path_datalake	src_path_dbfs	dst_path
