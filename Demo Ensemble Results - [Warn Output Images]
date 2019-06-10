@@ -1,0 +1,238 @@
+databricks-logo8. Demo Ensemble Results - [Warn Output Images](Python) Import Notebook
+Load Trained Models
+from keras.models import load_model
+all_classes = load_model("/dbfs//Cervix Data/old_model/checkpoints/alpha_model11_batchnorm_Color_Weights_correct-36-0.96-0.63.h5")
+print("loaded 1")
+class1_0 = load_model("/dbfs//Cervix Data/old_model/checkpoints/alpha_model_3_Class1_Color_weights-19-0.42-0.84.h5")
+print("loaded 2")
+class1_1 = load_model("/dbfs//Cervix Data/old_model/alpha_model_3_Class1_Color_weights_weights.h5")
+print("loaded 3")
+class1_2 = load_model("/dbfs//Cervix Data/old_model/alpha_model_6_Class1_Color_weights_weights.h5")
+print("loaded 4")
+class1_3 = load_model("/dbfs//Cervix Data/old_model/alpha_model_2_Class1_Color_weights_weights.h5")
+print("loaded 5")
+class2_0 = load_model("/dbfs//Cervix Data/old_model/checkpoints/alpha_model_4_Class2_Color_weights-16-0.68-0.60.h5")
+print("loaded 6")
+class2_1 = load_model("/dbfs//Cervix Data/old_model/alpha_model_4_Class2_Color_weights_weights.h5")
+print("loaded 7")
+class2_2 = load_model("/dbfs//Cervix Data/old_model/alpha_model_3_Class2_Color_weights_weights.h5")
+print("loaded 8")
+class3_0 = load_model("/dbfs//Cervix Data/old_model/checkpoints/alpha_model_7_Class3_Color_weights-15-0.56-0.73.h5")
+print("loaded 9")
+class3_1 = load_model("/dbfs//Cervix Data/old_model/alpha_model_7_Class3_Color_weights_weights.h5")
+print("loaded 10")
+class3_2 = load_model("/dbfs//Cervix Data/old_model/alpha_model_9_Class3_Color_weights_weights.h5")
+print("loaded 11")
+class3_3 = load_model("/dbfs//Cervix Data/old_model/alpha_model_2_Class3_Color_weights_weights.h5")
+print("loaded 12")
+Using TensorFlow backend.
+loaded 1
+loaded 2
+loaded 3
+loaded 4
+loaded 5
+loaded 6
+loaded 7
+loaded 8
+loaded 9
+loaded 10
+loaded 11
+loaded 12
+Load Test Data
+this is the final dataset the model will be tested on. These samples were not used to train or validate the model results. It is brand new data to the model.
+X_test = np.load("/dbfs//Cervix Data/same_aspect/X_test.npy")
+y_test = np.load("/dbfs//Cervix Data/same_aspect/y_test.npy")
+Create predictions from data
+12 deep learning models were developed to create a feature vector for each image
+this feature vector was used to create a Support Vector Machine to predict the label of the image
+predict_all_classes_test = all_classes.predict(X_test)
+predict_class1_0_test = class1_0.predict(X_test)
+predict_class1_1_test = class1_1.predict(X_test)
+predict_class1_2_test = class1_2.predict(X_test)
+predict_class1_3_test = class1_3.predict(X_test)
+predict_class2_0_test = class2_0.predict(X_test)
+predict_class2_1_test = class2_1.predict(X_test)
+predict_class2_2_test = class2_2.predict(X_test)
+predict_class3_0_test = class3_0.predict(X_test)
+predict_class3_1_test = class3_1.predict(X_test)
+predict_class3_2_test = class3_2.predict(X_test)
+predict_class3_3_test = class3_3.predict(X_test)
+Create feature vector
+features_list_test =[]
+int_binary_label_test = []
+int_multi_label_test = []
+for allcl, cl1_0,cl1_1,cl1_2,cl1_3, cl2_0,cl2_1,cl2_2, cl3_0,cl3_1,cl3_2,cl3_3, label in zip(predict_all_classes_test, predict_class1_0_test,predict_class1_1_test,predict_class1_2_test,predict_class1_3_test, predict_class2_0_test,predict_class2_1_test,predict_class2_2_test, predict_class3_0_test,predict_class3_1_test,predict_class3_2_test,predict_class3_3_test, y_test):
+  features = []
+  features.extend(allcl)
+  features.extend(cl1_0)
+  features.extend(cl1_1)
+  features.extend(cl1_2)
+  features.extend(cl1_3)
+  features.extend(cl2_0)
+  features.extend(cl2_1)
+  features.extend(cl2_2)
+  features.extend(cl3_0)
+  features.extend(cl3_1)
+  features.extend(cl3_2)
+  features.extend(cl3_3)
+  features_list_test.append(features)
+  for i in range(0,len(label)):
+    if label[i] == 1:
+      if i == 2:
+        int_binary_label_test.append(i-1)
+      else:
+        int_binary_label_test.append(i)
+      int_multi_label_test.append(i)
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix
+import pickle
+loaded_model = pickle.load(open("/dbfs//Cervix Data/models/svc_final_model.sav", 'rb'))
+loaded_scaler = pickle.load(open("/dbfs//Cervix Data/models/scaler_final_model.sav", 'rb'))
+features_list_scaled_test= loaded_scaler.transform(features_list_test)
+preds4_test=loaded_model.predict(features_list_scaled_test)
+preds_binary = [x-1 if x==2 else x for x in preds4_test]
+confusion_matrix(int_binary_label_test,preds_binary)
+Out[10]: 
+array([[ 40,  47],
+       [ 40, 385]])
+features_list_scaled_test[0]
+Out[11]: 
+array([3.49797151e-04, 2.82787073e-02, 9.72329015e-01, 9.70523651e-01,
+       2.94763495e-02, 7.51148682e-02, 9.24885164e-01, 1.36335179e-01,
+       8.63664906e-01, 1.70743214e-01, 8.29256781e-01, 2.64819979e-01,
+       7.35180079e-01, 3.29304384e-01, 6.70695661e-01, 5.29785264e-01,
+       4.70214657e-01, 2.93503976e-01, 7.06496073e-01, 8.50024638e-01,
+       1.49975363e-01, 1.00000000e+00, 0.00000000e+00, 6.73027594e-01,
+       3.26972319e-01])
+import pandas as pd
+image_paths = spark.read.format("parquet").load("dbfs:/mnt/images/Cervix Data/train_data/normalized/processed_image_metadata.parquet").toPandas()
+display(image_paths.head())
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1722.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1722.jpg	/dbfs/mnt/images/Cervix Data/train_data/normalized/Type_1/1722_flipped.jpg	[4160,4128,3]
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1725.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1725.jpg	/dbfs/mnt/images/Cervix Data/train_data/normalized/Type_1/1725_flipped.jpg	[4160,4128,3]
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1728.jpg	4128	3096	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1728.jpg	/dbfs/mnt/images/Cervix Data/train_data/normalized/Type_1/1728_flipped.jpg	[4160,4128,3]
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/173.jpg	4128	3096	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/173.jpg	/dbfs/mnt/images/Cervix Data/train_data/normalized/Type_1/173_flipped.jpg	[4160,4128,3]
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/1730.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/1730.jpg	/dbfs/mnt/images/Cervix Data/train_data/normalized/Type_1/1730_flipped.jpg	[4160,4128,3]
+origin	height	width	nChannels	mode	label	src_path	dst_path	norm_img_size
+ def return_prediction(image):
+  X_test = np.expand_dims(min_max_normalization(scaling(image,150,200),0,255), axis=0)
+  features = all_classes.predict(X_test).tolist()[0]
+  features.extend(class1_0.predict(X_test).tolist()[0])
+  features.extend(class1_1.predict(X_test).tolist()[0])
+  features.extend(class1_2.predict(X_test).tolist()[0])
+  features.extend(class1_3.predict(X_test).tolist()[0])
+  features.extend(class2_0.predict(X_test).tolist()[0])
+  features.extend(class2_1.predict(X_test).tolist()[0])
+  features.extend(class2_2.predict(X_test).tolist()[0])
+  features.extend(class3_0.predict(X_test).tolist()[0])
+  features.extend(class3_1.predict(X_test).tolist()[0])
+  features.extend(class3_2.predict(X_test).tolist()[0])
+  features.extend(class3_3.predict(X_test).tolist()[0])
+  features_list_scaled_test= loaded_scaler.transform([np.array(features)])
+  preds4_test=loaded_model.predict(features_list_scaled_test)
+  preds_binary = [x-1 if x==2 else x for x in preds4_test]
+  return preds_binary
+def scaling(img,scale_x,scale_y):
+    """
+    Input an image in a numpy array, scale of the x and ydirection as a decimal
+    Outputs a numpy array as the scaled image
+    """
+    return cv2.resize(img,(scale_x, scale_y), interpolation = cv2.INTER_AREA)
+def min_max_normalization(x,min,max):
+  """
+  This function takes an n by m array and normalizes each value based on the average of min and max values
+  of the RBG scale (min=0 and max=255).
+
+  It return an n by m array
+  """
+  avg_value=(max+min)/2.0
+  norm_array = np.zeros(x.shape)+avg_value
+  normalized_x= (x-norm_array)/norm_array
+  return normalized_x
+#display sample image
+import cv2
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+for i, image_path in image_paths.iloc[2:3].iterrows():
+  
+  plt.figure(i)
+  img = cv2.imread(image_path.src_path)
+  top = int(0.05 * img.shape[0])  # shape[0] = rows
+  bottom = top
+  left = int(0.05 * img.shape[1])  # shape[1] = cols
+  right = left
+  pred = return_prediction(img)[0]
+  if pred == 0:
+    value = [0, 255, 0]
+  else:
+    value = [0, 0, 255]
+  borderType = cv2.BORDER_CONSTANT
+  dst = cv2.copyMakeBorder(img, top, bottom, left, right, borderType, None, value)
+  dst = cv2.cvtColor(dst, cv2.COLOR_BGR2RGB)
+  plt.imshow(np.fliplr(dst))
+  if image_path.label == 0:
+    plt.title("Truth: Additional Screening Not Required")
+  else:
+    plt.title("Truth: Additional Screening Required")
+  #plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+  display(plt.show())
+
+#display sample image
+import cv2
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+for i, image_path in image_paths[image_paths["label"]==1].iloc[1:2].iterrows():
+  
+  plt.figure(i)
+  img = cv2.imread(image_path.src_path)
+  top = int(0.05 * img.shape[0])  # shape[0] = rows
+  bottom = top
+  left = int(0.05 * img.shape[1])  # shape[1] = cols
+  right = left
+  pred = return_prediction(img)[0]
+  if pred == 0:
+    value = [0, 255, 0]
+  else:
+    value = [0, 0, 255]
+  borderType = cv2.BORDER_CONSTANT
+  dst = cv2.copyMakeBorder(img, top, bottom, left, right, borderType, None, value)
+  dst = cv2.cvtColor(dst, cv2.COLOR_BGR2RGB)
+  plt.imshow(np.fliplr(dst))
+  if image_path.label == 0:
+    plt.title("Truth: Additional Screening Not Required")
+  else:
+    plt.title("Truth: Additional Screening Required")
+  #plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+  display(plt.show())
+
+#display sample image
+import cv2
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+for i, image_path in image_paths[image_paths["label"]==2].iloc[2:3].iterrows():
+  
+  plt.figure(i)
+  img = cv2.imread(image_path.src_path)
+  top = int(0.05 * img.shape[0])  # shape[0] = rows
+  bottom = top
+  left = int(0.05 * img.shape[1])  # shape[1] = cols
+  right = left
+  pred = return_prediction(img)[0]
+  if pred == 0:
+    value = [0, 255, 0]
+  else:
+    value = [0, 0, 255]
+  borderType = cv2.BORDER_CONSTANT
+  dst = cv2.copyMakeBorder(img, top, bottom, left, right, borderType, None, value)
+  dst = cv2.cvtColor(dst, cv2.COLOR_BGR2RGB)
+  plt.imshow(np.fliplr(dst))
+  if image_path.label == 0:
+    plt.title("Truth: Additional Screening Not Required")
+  else:
+    plt.title("Truth: Additional Screening Required")
+  #plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+  display(plt.show())
+
