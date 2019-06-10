@@ -1,0 +1,18 @@
+databricks-logo2. Image Copy from Datalake(Python) Import Notebook
+Copy Data from Datalake to Databricks
+There seems to be latency when loading images using generators so I copied the data to Databricks
+
+In the longrun, this was not needed because I created numpy objects that had all the images in it. This way I could load all data at once and broadcast it across the different workers.
+
+#make directories to copy to
+dbutils.fs.mkdirs("dbfs://")
+dbutils.fs.mkdirs("dbfs://Cervix Data/")
+dbutils.fs.mkdirs("dbfs://Cervix Data/normalized/")
+Out[3]: True
+#copy processed images
+dbutils.fs.cp("dbfs:/mnt/images/Cervix Data/train_data/normalized/","dbfs://Cervix Data/normalized/",recurse=True)
+Out[4]: True
+#copy raw images
+dbutils.fs.mkdirs("dbfs://Cervix Data/raw/")
+dbutils.fs.cp("dbfs:/mnt/images/Cervix Data/train_data/train/","dbfs://Cervix Data/raw/",recurse=True)
+Out[5]: True
