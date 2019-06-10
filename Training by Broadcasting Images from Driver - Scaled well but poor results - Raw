@@ -1,0 +1,1580 @@
+databricks-logox5.4. Training by Broadcasting Images from Driver - Scaled well but poor results - Raw(Python) Import Notebook
+Image Processing
+
+Distributed Deep Learning
+
+Get a reference dataframe of location to save model, and parameters of model training
+Define function to train model with given parameters and save model to location as specified
+Apply .rdd.map to reference dataframe (be sure the partition number is higher than 1)
+import pandas as pd
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+image_data.shape
+Out[1]: (7627, 9)
+ignore_wrong_labal = [x not in ["/dbfs//Cervix Data/same_aspect/Type_1/80.jpg", "/dbfs//Cervix Data/same_aspect/Type_3/968.jpg","/dbfs//Cervix Data/same_aspect/Type_3/1120.jpg"] for x in image_data["dst_path"]]
+image_data = image_data[ignore_wrong_labal]
+print(image_data.shape)
+image_data.to_json("/dbfs//Cervix Data/params/params1.json")
+(7625, 9)
+import numpy as np
+import keras
+from sklearn.utils import shuffle
+import numpy as np
+import cv2
+Using TensorFlow backend.
+from PIL import Image 
+from pyspark.sql.types import StringType, StructType, DoubleType, StructField,IntegerType
+import matplotlib.pyplot as plt
+
+from __future__ import print_function
+import keras
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D
+from keras import backend as K
+import pandas as pd
+from sklearn.model_selection import train_test_split
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+images = []
+angles = []
+i =0
+for key, batch_sample in train.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_rot= rotation(img, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_aug=perspectiveTransform(img,aug)
+  #img_flip = np.fliplr(img)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_flip_rot= rotation(img_flip, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_flip_aug=perspectiveTransform(img_flip,aug)  
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  #images.append(img_rot)
+  #images.append(img_aug)
+  #images.append(img_flip)
+  #images.append(img_flip_rot)
+  #images.append(img_flip_aug)
+  angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_train = np.array(images)
+y_train = np.array(angles)
+def min_max_normalization(x,min,max):
+  """
+  This function takes an n by m array and normalizes each value based on the average of min and max values
+  of the RBG scale (min=0 and max=255).
+
+  It return an n by m array
+  """
+  avg_value=(max+min)/2.0
+  norm_array = np.zeros(x.shape)+avg_value
+  normalized_x= (x-norm_array)/norm_array
+  return normalized_x
+images = []
+angles = []
+i=0
+for key, batch_sample in valid.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = min_max_normalization(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  angles.append(center_angle)
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_val = np.array(images)
+y_val = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+np.save("/dbfs//Cervix Data/same_aspect/X_train.npy", X_train)
+np.save("/dbfs//Cervix Data/same_aspect/y_train.npy", y_train)
+np.save("/dbfs//Cervix Data/same_aspect/X_val.npy", X_val)
+np.save("/dbfs//Cervix Data/same_aspect/y_val.npy", y_val)
+X_train = np.load("/dbfs//Cervix Data/same_aspect/X_train.npy")
+y_train = np.load("/dbfs//Cervix Data/same_aspect/y_train.npy")
+X_val = np.load("/dbfs//Cervix Data/same_aspect/X_val.npy")
+y_val = np.load("/dbfs//Cervix Data/same_aspect/y_val.npy")
+sc_X_train = sc.broadcast(X_train)
+sc_y_train = sc.broadcast(y_train)
+sc_X_val = sc.broadcast(X_val)
+sc_y_val = sc.broadcast(y_val)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model")
+dbutils.fs.rm("dbfs://Cervix Data/old_model/history",recurse=True)
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/history")
+dbutils.fs.mkdirs("dbfs://Cervix Data/old_model/checkpoints")
+Out[28]: True
+learning_rate_vector = -4.*np.random.rand(12)
+alpha = [10**x for x in learning_rate_vector]
+#batch_size = np.random.randint(low = 32, high=64, size = 3)
+#drop_out_a = np.random.uniform(low=0.15, high=0.45, size = 2)
+#drop_out_b = np.random.uniform(low=0.15, high=0.45, size = 2)
+import pandas as pd
+parameter_list =[]
+i=0
+for a in alpha:
+  param = {}
+  param["ModelLocation"] = "/dbfs//Cervix Data/old_model/alpha_model"+str(i)+".h5"
+  param["Alpha"] = a
+  parameter_list.append(param)
+  i+=1
+pd_param = pd.DataFrame(parameter_list)
+display(pd_param.head())
+0.029297021094138447	/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5
+0.0018000793200256121	/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5
+0.03827776915210458	/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5
+0.00018025272726411538	/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5
+0.5544920815202878	/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5
+Alpha	ModelLocation
+ spark_params = spark.createDataFrame(pd_param)
+params_path = "dbfs://Cervix Data/old_model/params1.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+models_df_tune=spark.read.parquet("dbfs://Cervix Data/old_model/params1.parquet")
+#models_df_tune.cache()
+#models_df_tune = models_df_tune.filter(models_df_tune.Loss < 2.1)
+row = models_df_tune.toPandas()
+row["Epochs"] = 0
+row.head()
+Out[6]: 
+                                       ModelLocation   ...    Epochs
+0  /dbfs/pepar/Cervix Data/old_model/alpha_model2.h5   ...         0
+1  /dbfs/pepar/Cervix Data/old_model/alpha_model5.h5   ...         0
+2  /dbfs/pepar/Cervix Data/old_model/alpha_model0.h5   ...         0
+3  /dbfs/pepar/Cervix Data/old_model/alpha_model7.h5   ...         0
+4  /dbfs/pepar/Cervix Data/old_model/alpha_model8.h5   ...         0
+
+[5 rows x 5 columns]
+display(row)
+/dbfs/pepar/Cervix Data/old_model/alpha_model2.h5	0.03827776915210458	7.499244941171469	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model5.h5	0.06502741464909513	7.499244941171469	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model0.h5	0.029297021094138447	7.499244941171469	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model7.h5	0.018153853060319806	7.499244941171469	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model8.h5	0.06037384940601332	7.499244941171469	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model9.h5	0.0027956130206057378	1.001640206630077	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model1.h5	0.0018000793200256121	1.0018321904567404	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model6.h5	0.0021951778977475182	1.0018467908605524	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model4.h5	0.5544920815202878	1.1920930376163597e-7	0.1782437746326389	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model10.h5	0.006016896944237318	1.0012623697402123	0.5347313244252186	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5	0.00018025272726411538	2.9099244530829034	0.5963302746044074	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model11.h5	0.0004905591519111259	2.6373737111472835	0.5923984264015058	0
+ModelLocation	Alpha	Loss	Accuracy	Epochs
+ models_df_tune.count()
+Out[19]: 12
+spark_params = spark.createDataFrame(row)
+params_path = "dbfs://Cervix Data/old_model/params1.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+models_df_tune=spark.read.parquet("dbfs://Cervix Data/old_model/params1.parquet")
+models_df_tune=models_df_tune.filter(models_df_tune.Alpha<0.0005)
+dbutils.fs.rm("dbfs://Cervix Data/old_model/history/alpha_model11_noclassweights_extradropout.csv")
+dbutils.fs.rm("dbfs://Cervix Data/old_model/history/alpha_model3_noclassweights_extradropout.csv")
+Out[17]: True
+row = models_df_tune.toPandas()
+row["Epochs"] = 0
+models_df_tune=spark.createDataFrame(row)
+display(models_df_tune)
+/dbfs/pepar/Cervix Data/old_model/alpha_model3.h5	0.00018025272726411538	2.9099244530829034	0.5963302746044074	0
+/dbfs/pepar/Cervix Data/old_model/alpha_model11.h5	0.0004905591519111259	2.6373737111472835	0.5923984264015058	0
+ModelLocation	Alpha	Loss	Accuracy	Epochs
+ def runDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from keras.callbacks import ModelCheckpoint
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  from keras.layers.normalization import BatchNormalization
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  
+  def min_max_normalization(x,min,max):
+    """
+    This function takes an n by m array and normalizes each value based on the average of min and max values
+    of the RBG scale (min=0 and max=255).
+
+    It return an n by m array
+    """
+    avg_value=(max+min)/2.0
+    norm_array = np.zeros(x.shape)+avg_value
+    normalized_x= (x-norm_array)/norm_array
+    return normalized_x
+  def perspectiveTransform(img_src,offset):
+      img = img_src
+      cols,rows,ch = img.shape
+      pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+      pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                         [np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+      M = cv2.getPerspectiveTransform(pts1,pts2)
+
+      dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+      return dst
+
+  def rotation(img, rotation_angle):
+      rows,cols = img.shape[0:2]
+
+      M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+      return cv2.warpAffine(img,M,(cols,rows))
+  
+  train, valid = train_test_split(image_data, test_size=0.1)
+  
+  
+  #from keras.models import load_model
+  #model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  if int(row.Epochs) == 0:
+    print("Build new model")
+    model = Sequential()
+    elu=ELU()
+    #model.add(Convolution2D(5, 5, 5, batch_input_shape=(None, 450,600,3)))
+    model.add(Convolution2D(5, (5, 5), batch_input_shape=(None, 200,150,3)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(7, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(9, (5, 5)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((1, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(10, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    model.add(MaxPooling2D((2, 1)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(15, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D((1, 2)))
+    model.add(elu)
+    model.add(Dropout(0.3))
+
+    model.add(Convolution2D(18, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+    model.add(Convolution2D(30, (2, 2)))
+    model.add(BatchNormalization())
+    model.add(elu)
+    #model.add(MaxPooling2D((2, 2)))
+    model.add(Dropout(0.3))
+
+
+
+    model.add(Flatten())
+    model.add(Dense(1000))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(800))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(700))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(600))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(500))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(400))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(300))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(200))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+
+    model.add(Dense(100))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    model.add(Dense(50))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    """model.add(Dense(40))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(30))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(25))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.1))
+
+    model.add(Dense(20))
+    model.add(Activation('relu'))
+    #model.add(Dropout(0.2))"""
+
+    model.add(Dense(15))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+
+    #model.add(Dense(5))
+    #model.add(Activation('relu'))
+
+
+    model.add(Dense(3))
+    model.add(Activation('softmax'))
+  else:
+    print("Load existing model")
+    from keras.models import load_model
+    model = load_model(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout.h5")
+
+  model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer=keras.optimizers.Adam(lr = row.Alpha),
+                metrics=['accuracy'])
+  filepath="/dbfs//Cervix Data/old_model/checkpoints/"+str(row.ModelLocation).split("/")[-1][:-3]+"-{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}_noclassweights_extradropout.h5"
+  checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=0)
+  checkpoint.epochs_since_last_save  = int(row.Epochs)
+  #batch_size = 100
+  from sklearn.utils import class_weight
+
+  class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(train.label),
+                                                 train.label)
+  iters =15
+  epochs=3
+  #csv_logger = CSVLogger("/dbfs//Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_noclassweights_extradropout.csv", append=True, separator=',')
+  #callbacks_list = [csv_logger, checkpoint]
+  
+  #model.fit(X_train, y_train, batch_size = 100, epochs=epochs, class_weight = class_weights, verbose=1)
+  from keras.callbacks import CSVLogger
+
+  csv_logger = CSVLogger("/dbfs//Cervix Data/old_model/history/"+str(row.ModelLocation).split("/")[-1][:-3]+"_noclassweights_extradropout.csv", append=True, separator=',')
+  callbacks_list = [csv_logger, checkpoint]
+  
+  
+  for iter_i in range(0,iters):
+    print("Iter " + str(iter_i))
+    images = []
+    angles = []
+    print("augmenting Data")
+    for batch_sample, label in zip(sc_X_train.value,sc_y_train.value):
+      
+      X_train = None
+      y_train = None
+      #name = batch_sample.dst_path
+      img = batch_sample
+      #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_rot= min_max_normalization(rotation(img, rotation_angle), 0, 255)
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_aug=min_max_normalization(perspectiveTransform(img,30), 0, 255)
+      img_flip = min_max_normalization(np.fliplr(img), 0, 255)
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img_flip_rot= min_max_normalization(rotation(img_flip, rotation_angle), 0, 255)
+      #aug = np.random.randint(low=1,high=20,size=1)[0]
+      img_flip_aug=min_max_normalization(perspectiveTransform(img_flip,30), 0, 255) 
+      img = min_max_normalization(img, 0, 255)
+      #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+      center_angle = label
+      #center_angle[batch_sample.label] = 1
+      images.append(img)
+      images.append(img_rot)
+      images.append(img_aug)
+      images.append(img_flip)
+      images.append(img_flip_rot)
+      images.append(img_flip_aug)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      angles.append(center_angle)
+      #images.append(np.fliplr(center_image))
+      #angles.append([1-center_angle,center_angle])
+
+    X_train = np.array(images)
+    y_train = np.array(angles)
+    X_train, y_train = shuffle(X_train, y_train)
+    model.fit(X_train, y_train, batch_size = 100, epochs=row.Epochs+(epochs*iter_i)+epochs, verbose=1,callbacks=callbacks_list, validation_data=(sc_X_val.value, sc_y_val.value), initial_epoch=row.Epochs+(epochs*iter_i))
+    
+  model.save(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout.h5")
+  
+  
+  score = model.evaluate(sc_X_val.value, sc_y_val.value,verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-3]+"_noclassweights_extradropout.h5", row.Alpha,  loss, acc, row.Epochs+(epochs*iters))
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+   StructField("Epochs", IntegerType(), False)
+                    ])
+#models_df_tune = models_df_tune.repartition(2)
+models_df_tune.cache()
+Out[14]: DataFrame[ModelLocation: string, Alpha: double, Loss: double, Accuracy: double, Epochs: bigint]
+results_df = models_df_tune.rdd.map(runDLModelHyper).toDF(schema).toPandas()
+Cancelled
+# Spark having lazy evaluation, the <display> action actually 'runs' the compute
+display(results_df)
+Cancelled
+#dbutils.fs.rm("dbfs://Cervix Data/params/params1_v7.parquet", recurse=True)
+#spark.createDataFrame(results_df).write.parquet("dbfs://Cervix Data/params/params1_v11.parquet")
+spark_params = spark.createDataFrame(results_df)
+params_path = "dbfs://Cervix Data/old_model/params1_noclassweights_extradropout.parquet"
+dbutils.fs.rm(params_path, recurse=True)
+spark_params.write.parquet(params_path)
+Internal error, sorry. Attach your notebook to a different cluster or restart the current cluster.
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+customSchema = StructType(
+        [StructField("epoch", IntegerType(), False),
+        StructField("acc", DoubleType(), False),
+        StructField("loss", DoubleType(), False),
+        StructField("val_acc", DoubleType(), False),
+        StructField("val_loss", DoubleType(), False)])
+epoch_data = spark.read.format("csv").schema(customSchema).option("header","true").load("dbfs://Cervix Data/old_model/history/")
+epoch_data = epoch_data.withColumn('FILEPATH',input_file_name())
+display(epoch_data)
+EPOCH
+0
+20
+40
+60
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+FILEPATH
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+dbfs:/pepar/Cervix%20...
+Showing the first 1000 rows.
+
+Only showing the first twenty series.
+
+ (x_train, y_train), (x_test, y_test) = mnist.load_data()
+Downloading data from https://s3.amazonaws.com/img-datasets/mnist.npz
+
+    8192/11490434 [..............................] - ETA: 34s
+   57344/11490434 [..............................] - ETA: 14s
+  106496/11490434 [..............................] - ETA: 13s
+  196608/11490434 [..............................] - ETA: 10s
+  319488/11490434 [..............................] - ETA: 7s 
+  475136/11490434 [>.............................] - ETA: 6s
+  679936/11490434 [>.............................] - ETA: 5s
+  958464/11490434 [=>............................] - ETA: 4s
+ 1310720/11490434 [==>...........................] - ETA: 3s
+ 1744896/11490434 [===>..........................] - ETA: 2s
+ 2301952/11490434 [=====>........................] - ETA: 2s
+ 2981888/11490434 [======>.......................] - ETA: 1s
+ 3801088/11490434 [========>.....................] - ETA: 1s
+ 4759552/11490434 [===========>..................] - ETA: 0s
+ 5849088/11490434 [==============>...............] - ETA: 0s
+ 7110656/11490434 [=================>............] - ETA: 0s
+ 8568832/11490434 [=====================>........] - ETA: 0s
+10338304/11490434 [=========================>....] - ETA: 0s
+11493376/11490434 [==============================] - 1s 0us/step
+x_test.shape
+Cancelled
+row.iloc[1]
+Out[15]: 
+ModelLocation    /dbfs/pepar/Cervix Data/old_model/alpha_model1...
+Alpha                                                  0.000490559
+Loss                                                       2.63737
+Accuracy                                                  0.592398
+Epochs                                                           0
+Name: 1, dtype: object
+runDLModelHyper(row.iloc[0])
+Build new model
+Iter 0
+augmenting Data
+Train on 41172 samples, validate on 763 samples
+Epoch 1/3
+
+  100/41172 [..............................] - ETA: 41:40 - loss: 1.3989 - acc: 0.3500
+  200/41172 [..............................] - ETA: 21:13 - loss: 1.3481 - acc: 0.3700
+  300/41172 [..............................] - ETA: 14:25 - loss: 1.3541 - acc: 0.3667
+  400/41172 [..............................] - ETA: 11:01 - loss: 1.3505 - acc: 0.3600
+  500/41172 [..............................] - ETA: 8:58 - loss: 1.3266 - acc: 0.3680 
+  600/41172 [..............................] - ETA: 7:35 - loss: 1.3304 - acc: 0.3650
+  700/41172 [..............................] - ETA: 6:37 - loss: 1.3324 - acc: 0.3714
+  800/41172 [..............................] - ETA: 5:53 - loss: 1.3531 - acc: 0.3650
+  900/41172 [..............................] - ETA: 5:18 - loss: 1.3540 - acc: 0.3567
+ 1000/41172 [..............................] - ETA: 4:51 - loss: 1.3568 - acc: 0.3560
+ 1100/41172 [..............................] - ETA: 4:28 - loss: 1.3619 - acc: 0.3527
+ 1200/41172 [..............................] - ETA: 4:10 - loss: 1.3640 - acc: 0.3500
+ 1300/41172 [..............................] - ETA: 3:54 - loss: 1.3680 - acc: 0.3485
+ 1400/41172 [>.............................] - ETA: 3:40 - loss: 1.3646 - acc: 0.3500
+ 1500/41172 [>.............................] - ETA: 3:29 - loss: 1.3593 - acc: 0.3573
+ 1600/41172 [>.............................] - ETA: 3:18 - loss: 1.3628 - acc: 0.3550
+ 1700/41172 [>.............................] - ETA: 3:09 - loss: 1.3622 - acc: 0.3547
+ 1800/41172 [>.............................] - ETA: 3:01 - loss: 1.3674 - acc: 0.3511
+ 1900/41172 [>.............................] - ETA: 2:54 - loss: 1.3738 - acc: 0.3447
+ 2000/41172 [>.............................] - ETA: 2:47 - loss: 1.3799 - acc: 0.3405
+ 2100/41172 [>.............................] - ETA: 2:41 - loss: 1.3810 - acc: 0.3381
+ 2200/41172 [>.............................] - ETA: 2:36 - loss: 1.3779 - acc: 0.3382
+ 2300/41172 [>.............................] - ETA: 2:31 - loss: 1.3791 - acc: 0.3378
+ 2400/41172 [>.............................] - ETA: 2:26 - loss: 1.3796 - acc: 0.3371
+ 2500/41172 [>.............................] - ETA: 2:22 - loss: 1.3776 - acc: 0.3348
+ 2600/41172 [>.............................] - ETA: 2:18 - loss: 1.3752 - acc: 0.3335
+ 2700/41172 [>.............................] - ETA: 2:14 - loss: 1.3720 - acc: 0.3326
+ 2800/41172 [=>............................] - ETA: 2:11 - loss: 1.3663 - acc: 0.3357
+ 2900/41172 [=>............................] - ETA: 2:08 - loss: 1.3668 - acc: 0.3355
+ 3000/41172 [=>............................] - ETA: 2:05 - loss: 1.3633 - acc: 0.3347
+ 3100/41172 [=>............................] - ETA: 2:02 - loss: 1.3615 - acc: 0.3361
+ 3200/41172 [=>............................] - ETA: 1:59 - loss: 1.3611 - acc: 0.3359
+ 3300/41172 [=>............................] - ETA: 1:57 - loss: 1.3618 - acc: 0.3364
+ 3400/41172 [=>............................] - ETA: 1:54 - loss: 1.3616 - acc: 0.3356
+ 3500/41172 [=>............................] - ETA: 1:52 - loss: 1.3636 - acc: 0.3354
+ 3600/41172 [=>............................] - ETA: 1:50 - loss: 1.3636 - acc: 0.3347
+ 3700/41172 [=>............................] - ETA: 1:48 - loss: 1.3608 - acc: 0.3354
+ 3800/41172 [=>............................] - ETA: 1:46 - loss: 1.3618 - acc: 0.3361
+ 3900/41172 [=>............................] - ETA: 1:44 - loss: 1.3584 - acc: 0.3379
+ 4000/41172 [=>............................] - ETA: 1:43 - loss: 1.3581 - acc: 0.3373
+ 4100/41172 [=>............................] - ETA: 1:41 - loss: 1.3558 - acc: 0.3380
+ 4200/41172 [==>...........................] - ETA: 1:40 - loss: 1.3530 - acc: 0.3407
+ 4300/41172 [==>...........................] - ETA: 1:38 - loss: 1.3498 - acc: 0.3400
+ 4400/41172 [==>...........................] - ETA: 1:37 - loss: 1.3478 - acc: 0.3393
+ 4500/41172 [==>...........................] - ETA: 1:35 - loss: 1.3503 - acc: 0.3396
+ 4600/41172 [==>...........................] - ETA: 1:34 - loss: 1.3502 - acc: 0.3391
+ 4700/41172 [==>...........................] - ETA: 1:33 - loss: 1.3497 - acc: 0.3379
+ 4800/41172 [==>...........................] - ETA: 1:31 - loss: 1.3493 - acc: 0.3379
+ 4900/41172 [==>...........................] - ETA: 1:30 - loss: 1.3463 - acc: 0.3398
+ 5000/41172 [==>...........................] - ETA: 1:29 - loss: 1.3452 - acc: 0.3402
+ 5100/41172 [==>...........................] - ETA: 1:28 - loss: 1.3456 - acc: 0.3406
+ 5200/41172 [==>...........................] - ETA: 1:27 - loss: 1.3465 - acc: 0.3406
+ 5300/41172 [==>...........................] - ETA: 1:26 - loss: 1.3466 - acc: 0.3398
+ 5400/41172 [==>...........................] - ETA: 1:25 - loss: 1.3474 - acc: 0.3393
+ 5500/41172 [===>..........................] - ETA: 1:24 - loss: 1.3464 - acc: 0.3398
+ 5600/41172 [===>..........................] - ETA: 1:23 - loss: 1.3441 - acc: 0.3393
+ 5700/41172 [===>..........................] - ETA: 1:22 - loss: 1.3433 - acc: 0.3393
+ 5800/41172 [===>..........................] - ETA: 1:21 - loss: 1.3425 - acc: 0.3395
+ 5900/41172 [===>..........................] - ETA: 1:20 - loss: 1.3418 - acc: 0.3398
+ 6000/41172 [===>..........................] - ETA: 1:20 - loss: 1.3407 - acc: 0.3398
+ 6100/41172 [===>..........................] - ETA: 1:19 - loss: 1.3388 - acc: 0.3403
+ 6200/41172 [===>..........................] - ETA: 1:18 - loss: 1.3390 - acc: 0.3403
+ 6300/41172 [===>..........................] - ETA: 1:17 - loss: 1.3393 - acc: 0.3400
+ 6400/41172 [===>..........................] - ETA: 1:17 - loss: 1.3380 - acc: 0.3395
+ 6500/41172 [===>..........................] - ETA: 1:16 - loss: 1.3386 - acc: 0.3386
+ 6600/41172 [===>..........................] - ETA: 1:15 - loss: 1.3380 - acc: 0.3382
+ 6700/41172 [===>..........................] - ETA: 1:14 - loss: 1.3375 - acc: 0.3387
+ 6800/41172 [===>..........................] - ETA: 1:14 - loss: 1.3363 - acc: 0.3393
+ 6900/41172 [====>.........................] - ETA: 1:13 - loss: 1.3380 - acc: 0.3394
+ 7000/41172 [====>.........................] - ETA: 1:13 - loss: 1.3379 - acc: 0.3393
+ 7100/41172 [====>.........................] - ETA: 1:12 - loss: 1.3368 - acc: 0.3392
+ 7200/41172 [====>.........................] - ETA: 1:11 - loss: 1.3338 - acc: 0.3401
+ 7300/41172 [====>.........................] - ETA: 1:11 - loss: 1.3331 - acc: 0.3399
+ 7400/41172 [====>.........................] - ETA: 1:10 - loss: 1.3312 - acc: 0.3405
+ 7500/41172 [====>.........................] - ETA: 1:10 - loss: 1.3307 - acc: 0.3404
+ 7600/41172 [====>.........................] - ETA: 1:09 - loss: 1.3293 - acc: 0.3411
+ 7700/41172 [====>.........................] - ETA: 1:08 - loss: 1.3303 - acc: 0.3408
+ 7800/41172 [====>.........................] - ETA: 1:08 - loss: 1.3295 - acc: 0.3415
+ 7900/41172 [====>.........................] - ETA: 1:07 - loss: 1.3285 - acc: 0.3425
+ 8000/41172 [====>.........................] - ETA: 1:07 - loss: 1.3278 - acc: 0.3428
+ 8100/41172 [====>.........................] - ETA: 1:06 - loss: 1.3277 - acc: 0.3427
+ 8200/41172 [====>.........................] - ETA: 1:06 - loss: 1.3279 - acc: 0.3422
+ 8300/41172 [=====>........................] - ETA: 1:05 - loss: 1.3262 - acc: 0.3424
+ 8400/41172 [=====>........................] - ETA: 1:05 - loss: 1.3259 - acc: 0.3430
+ 8500/41172 [=====>........................] - ETA: 1:04 - loss: 1.3249 - acc: 0.3435
+ 8600/41172 [=====>........................] - ETA: 1:04 - loss: 1.3247 - acc: 0.3435
+ 8700/41172 [=====>........................] - ETA: 1:03 - loss: 1.3252 - acc: 0.3436
+ 8800/41172 [=====>........................] - ETA: 1:03 - loss: 1.3245 - acc: 0.3432
+ 8900/41172 [=====>........................] - ETA: 1:03 - loss: 1.3238 - acc: 0.3435
+ 9000/41172 [=====>........................] - ETA: 1:02 - loss: 1.3233 - acc: 0.3443
+ 9100/41172 [=====>........................] - ETA: 1:02 - loss: 1.3237 - acc: 0.3435
+ 9200/41172 [=====>........................] - ETA: 1:01 - loss: 1.3235 - acc: 0.3435
+ 9300/41172 [=====>........................] - ETA: 1:01 - loss: 1.3215 - acc: 0.3443
+ 9400/41172 [=====>........................] - ETA: 1:00 - loss: 1.3205 - acc: 0.3446
+ 9500/41172 [=====>........................] - ETA: 1:00 - loss: 1.3206 - acc: 0.3442
+ 9600/41172 [=====>........................] - ETA: 1:00 - loss: 1.3192 - acc: 0.3449
+ 9700/41172 [======>.......................] - ETA: 59s - loss: 1.3187 - acc: 0.3455 
+ 9800/41172 [======>.......................] - ETA: 59s - loss: 1.3177 - acc: 0.3463
+ 9900/41172 [======>.......................] - ETA: 58s - loss: 1.3167 - acc: 0.3466
+10000/41172 [======>.......................] - ETA: 58s - loss: 1.3165 - acc: 0.3465
+10100/41172 [======>.......................] - ETA: 58s - loss: 1.3154 - acc: 0.3469
+10200/41172 [======>.......................] - ETA: 57s - loss: 1.3144 - acc: 0.3475
+10300/41172 [======>.......................] - ETA: 57s - loss: 1.3128 - acc: 0.3483
+10400/41172 [======>.......................] - ETA: 57s - loss: 1.3135 - acc: 0.3479
+10500/41172 [======>.......................] - ETA: 56s - loss: 1.3129 - acc: 0.3477
+10600/41172 [======>.......................] - ETA: 56s - loss: 1.3123 - acc: 0.3482
+10700/41172 [======>.......................] - ETA: 56s - loss: 1.3112 - acc: 0.3490
+10800/41172 [======>.......................] - ETA: 55s - loss: 1.3104 - acc: 0.3494
+10900/41172 [======>.......................] - ETA: 55s - loss: 1.3107 - acc: 0.3489
+11000/41172 [=======>......................] - ETA: 55s - loss: 1.3104 - acc: 0.3493
+11100/41172 [=======>......................] - ETA: 54s - loss: 1.3101 - acc: 0.3489
+11200/41172 [=======>......................] - ETA: 54s - loss: 1.3107 - acc: 0.3486
+11300/41172 [=======>......................] - ETA: 54s - loss: 1.3093 - acc: 0.3490
+11400/41172 [=======>......................] - ETA: 53s - loss: 1.3080 - acc: 0.3494
+11500/41172 [=======>......................] - ETA: 53s - loss: 1.3062 - acc: 0.3502
+11600/41172 [=======>......................] - ETA: 53s - loss: 1.3055 - acc: 0.3510
+11700/41172 [=======>......................] - ETA: 52s - loss: 1.3062 - acc: 0.3505
+11800/41172 [=======>......................] - ETA: 52s - loss: 1.3057 - acc: 0.3507
+11900/41172 [=======>......................] - ETA: 52s - loss: 1.3049 - acc: 0.3508
+12000/41172 [=======>......................] - ETA: 51s - loss: 1.3050 - acc: 0.3510
+12100/41172 [=======>......................] - ETA: 51s - loss: 1.3045 - acc: 0.3509
+12200/41172 [=======>......................] - ETA: 51s - loss: 1.3042 - acc: 0.3509
+12300/41172 [=======>......................] - ETA: 51s - loss: 1.3047 - acc: 0.3504
+12400/41172 [========>.....................] - ETA: 50s - loss: 1.3043 - acc: 0.3502
+12500/41172 [========>.....................] - ETA: 50s - loss: 1.3051 - acc: 0.3502
+12600/41172 [========>.....................] - ETA: 50s - loss: 1.3041 - acc: 0.3506
+12700/41172 [========>.....................] - ETA: 49s - loss: 1.3038 - acc: 0.3509
+12800/41172 [========>.....................] - ETA: 49s - loss: 1.3038 - acc: 0.3512
+12900/41172 [========>.....................] - ETA: 49s - loss: 1.3034 - acc: 0.3515
+13000/41172 [========>.....................] - ETA: 49s - loss: 1.3037 - acc: 0.3513
+13100/41172 [========>.....................] - ETA: 48s - loss: 1.3026 - acc: 0.3515
+13200/41172 [========>.....................] - ETA: 48s - loss: 1.3023 - acc: 0.3518
+13300/41172 [========>.....................] - ETA: 48s - loss: 1.3017 - acc: 0.3524
+13400/41172 [========>.....................] - ETA: 48s - loss: 1.3007 - acc: 0.3531
+13500/41172 [========>.....................] - ETA: 47s - loss: 1.3003 - acc: 0.3534
+13600/41172 [========>.....................] - ETA: 47s - loss: 1.3002 - acc: 0.3533
+13700/41172 [========>.....................] - ETA: 47s - loss: 1.3000 - acc: 0.3538
+13800/41172 [=========>....................] - ETA: 46s - loss: 1.2996 - acc: 0.3541
+13900/41172 [=========>....................] - ETA: 46s - loss: 1.2997 - acc: 0.3540
+14000/41172 [=========>....................] - ETA: 46s - loss: 1.3001 - acc: 0.3537
+14100/41172 [=========>....................] - ETA: 46s - loss: 1.3004 - acc: 0.3530
+14200/41172 [=========>....................] - ETA: 45s - loss: 1.3004 - acc: 0.3531
+14300/41172 [=========>....................] - ETA: 45s - loss: 1.3003 - acc: 0.3529
+14400/41172 [=========>....................] - ETA: 45s - loss: 1.3002 - acc: 0.3530
+14500/41172 [=========>....................] - ETA: 45s - loss: 1.3000 - acc: 0.3532
+14600/41172 [=========>....................] - ETA: 44s - loss: 1.2992 - acc: 0.3532
+14700/41172 [=========>....................] - ETA: 44s - loss: 1.2992 - acc: 0.3529
+14800/41172 [=========>....................] - ETA: 44s - loss: 1.2980 - acc: 0.3536
+14900/41172 [=========>....................] - ETA: 44s - loss: 1.2983 - acc: 0.3532
+15000/41172 [=========>....................] - ETA: 44s - loss: 1.2980 - acc: 0.3534
+15100/41172 [==========>...................] - ETA: 43s - loss: 1.2980 - acc: 0.3535
+15200/41172 [==========>...................] - ETA: 43s - loss: 1.2975 - acc: 0.3541
+15300/41172 [==========>...................] - ETA: 43s - loss: 1.2974 - acc: 0.3545
+15400/41172 [==========>...................] - ETA: 43s - loss: 1.2970 - acc: 0.3544
+15500/41172 [==========>...................] - ETA: 42s - loss: 1.2974 - acc: 0.3542
+15600/41172 [==========>...................] - ETA: 42s - loss: 1.2969 - acc: 0.3547
+15700/41172 [==========>...................] - ETA: 42s - loss: 1.2965 - acc: 0.3555
+15800/41172 [==========>...................] - ETA: 42s - loss: 1.2966 - acc: 0.3555
+15900/41172 [==========>...................] - ETA: 41s - loss: 1.2960 - acc: 0.3560
+16000/41172 [==========>...................] - ETA: 41s - loss: 1.2960 - acc: 0.3559
+16100/41172 [==========>...................] - ETA: 41s - loss: 1.2955 - acc: 0.3561
+16200/41172 [==========>...................] - ETA: 41s - loss: 1.2944 - acc: 0.3562
+16300/41172 [==========>...................] - ETA: 41s - loss: 1.2941 - acc: 0.3561
+16400/41172 [==========>...................] - ETA: 40s - loss: 1.2944 - acc: 0.3562
+16500/41172 [===========>..................] - ETA: 40s - loss: 1.2944 - acc: 0.3564
+16600/41172 [===========>..................] - ETA: 40s - loss: 1.2939 - acc: 0.3563
+16700/41172 [===========>..................] - ETA: 40s - loss: 1.2937 - acc: 0.3566
+16800/41172 [===========>..................] - ETA: 39s - loss: 1.2939 - acc: 0.3567
+16900/41172 [===========>..................] - ETA: 39s - loss: 1.2931 - acc: 0.3572
+17000/41172 [===========>..................] - ETA: 39s - loss: 1.2933 - acc: 0.3569
+17100/41172 [===========>..................] - ETA: 39s - loss: 1.2929 - acc: 0.3573
+17200/41172 [===========>..................] - ETA: 39s - loss: 1.2923 - acc: 0.3573
+17300/41172 [===========>..................] - ETA: 38s - loss: 1.2923 - acc: 0.3577
+17400/41172 [===========>..................] - ETA: 38s - loss: 1.2918 - acc: 0.3577
+17500/41172 [===========>..................] - ETA: 38s - loss: 1.2917 - acc: 0.3578
+17600/41172 [===========>..................] - ETA: 38s - loss: 1.2917 - acc: 0.3575
+17700/41172 [===========>..................] - ETA: 38s - loss: 1.2917 - acc: 0.3572
+17800/41172 [===========>..................] - ETA: 37s - loss: 1.2920 - acc: 0.3569
+17900/41172 [============>.................] - ETA: 37s - loss: 1.2922 - acc: 0.3566
+18000/41172 [============>.................] - ETA: 37s - loss: 1.2921 - acc: 0.3566
+18100/41172 [============>.................] - ETA: 37s - loss: 1.2919 - acc: 0.3562
+18200/41172 [============>.................] - ETA: 37s - loss: 1.2921 - acc: 0.3559
+18300/41172 [============>.................] - ETA: 36s - loss: 1.2923 - acc: 0.3558
+18400/41172 [============>.................] - ETA: 36s - loss: 1.2919 - acc: 0.3558
+18500/41172 [============>.................] - ETA: 36s - loss: 1.2913 - acc: 0.3563
+18600/41172 [============>.................] - ETA: 36s - loss: 1.2913 - acc: 0.3566
+18700/41172 [============>.................] - ETA: 36s - loss: 1.2907 - acc: 0.3566
+18800/41172 [============>.................] - ETA: 35s - loss: 1.2904 - acc: 0.3568
+18900/41172 [============>.................] - ETA: 35s - loss: 1.2899 - acc: 0.3567
+19000/41172 [============>.................] - ETA: 35s - loss: 1.2890 - acc: 0.3569
+19100/41172 [============>.................] - ETA: 35s - loss: 1.2885 - acc: 0.3572
+19200/41172 [============>.................] - ETA: 35s - loss: 1.2881 - acc: 0.3573
+19300/41172 [=============>................] - ETA: 34s - loss: 1.2878 - acc: 0.3577
+19400/41172 [=============>................] - ETA: 34s - loss: 1.2873 - acc: 0.3579
+19500/41172 [=============>................] - ETA: 34s - loss: 1.2870 - acc: 0.3579
+19600/41172 [=============>................] - ETA: 34s - loss: 1.2864 - acc: 0.3583
+19700/41172 [=============>................] - ETA: 34s - loss: 1.2863 - acc: 0.3579
+19800/41172 [=============>................] - ETA: 33s - loss: 1.2863 - acc: 0.3580
+19900/41172 [=============>................] - ETA: 33s - loss: 1.2854 - acc: 0.3584
+20000/41172 [=============>................] - ETA: 33s - loss: 1.2848 - acc: 0.3585
+20100/41172 [=============>................] - ETA: 33s - loss: 1.2846 - acc: 0.3584
+20200/41172 [=============>................] - ETA: 33s - loss: 1.2843 - acc: 0.3584
+20300/41172 [=============>................] - ETA: 32s - loss: 1.2838 - acc: 0.3585
+20400/41172 [=============>................] - ETA: 32s - loss: 1.2840 - acc: 0.3584
+20500/41172 [=============>................] - ETA: 32s - loss: 1.2837 - acc: 0.3582
+20600/41172 [==============>...............] - ETA: 32s - loss: 1.2834 - acc: 0.3583
+20700/41172 [==============>...............] - ETA: 32s - loss: 1.2830 - acc: 0.3584
+20800/41172 [==============>...............] - ETA: 32s - loss: 1.2831 - acc: 0.3584
+20900/41172 [==============>...............] - ETA: 31s - loss: 1.2827 - acc: 0.3589
+21000/41172 [==============>...............] - ETA: 31s - loss: 1.2827 - acc: 0.3588
+21100/41172 [==============>...............] - ETA: 31s - loss: 1.2821 - acc: 0.3591
+21200/41172 [==============>...............] - ETA: 31s - loss: 1.2819 - acc: 0.3592
+21300/41172 [==============>...............] - ETA: 31s - loss: 1.2816 - acc: 0.3591
+21400/41172 [==============>...............] - ETA: 30s - loss: 1.2811 - acc: 0.3594
+21500/41172 [==============>...............] - ETA: 30s - loss: 1.2807 - acc: 0.3597
+21600/41172 [==============>...............] - ETA: 30s - loss: 1.2805 - acc: 0.3598
+21700/41172 [==============>...............] - ETA: 30s - loss: 1.2802 - acc: 0.3597
+21800/41172 [==============>...............] - ETA: 30s - loss: 1.2797 - acc: 0.3598
+21900/41172 [==============>...............] - ETA: 30s - loss: 1.2797 - acc: 0.3596
+22000/41172 [===============>..............] - ETA: 29s - loss: 1.2796 - acc: 0.3599
+22100/41172 [===============>..............] - ETA: 29s - loss: 1.2794 - acc: 0.3599
+22200/41172 [===============>..............] - ETA: 29s - loss: 1.2789 - acc: 0.3600
+22300/41172 [===============>..............] - ETA: 29s - loss: 1.2790 - acc: 0.3598
+22400/41172 [===============>..............] - ETA: 29s - loss: 1.2790 - acc: 0.3595
+22500/41172 [===============>..............] - ETA: 28s - loss: 1.2790 - acc: 0.3597
+22600/41172 [===============>..............] - ETA: 28s - loss: 1.2790 - acc: 0.3598
+22700/41172 [===============>..............] - ETA: 28s - loss: 1.2789 - acc: 0.3597
+22800/41172 [===============>..............] - ETA: 28s - loss: 1.2783 - acc: 0.3599
+22900/41172 [===============>..............] - ETA: 28s - loss: 1.2780 - acc: 0.3597
+23000/41172 [===============>..............] - ETA: 28s - loss: 1.2780 - acc: 0.3595
+23100/41172 [===============>..............] - ETA: 27s - loss: 1.2772 - acc: 0.3599
+23200/41172 [===============>..............] - ETA: 27s - loss: 1.2765 - acc: 0.3601
+23300/41172 [===============>..............] - ETA: 27s - loss: 1.2758 - acc: 0.3604
+23400/41172 [================>.............] - ETA: 27s - loss: 1.2752 - acc: 0.3608
+23500/41172 [================>.............] - ETA: 27s - loss: 1.2753 - acc: 0.3609
+23600/41172 [================>.............] - ETA: 27s - loss: 1.2755 - acc: 0.3607
+23700/41172 [================>.............] - ETA: 26s - loss: 1.2750 - acc: 0.3608
+23800/41172 [================>.............] - ETA: 26s - loss: 1.2751 - acc: 0.3608
+23900/41172 [================>.............] - ETA: 26s - loss: 1.2748 - acc: 0.3613
+24000/41172 [================>.............] - ETA: 26s - loss: 1.2742 - acc: 0.3616
+24100/41172 [================>.............] - ETA: 26s - loss: 1.2742 - acc: 0.3617
+24200/41172 [================>.............] - ETA: 26s - loss: 1.2734 - acc: 0.3621
+24300/41172 [================>.............] - ETA: 25s - loss: 1.2732 - acc: 0.3621
+24400/41172 [================>.............] - ETA: 25s - loss: 1.2727 - acc: 0.3623
+24500/41172 [================>.............] - ETA: 25s - loss: 1.2724 - acc: 0.3626
+24600/41172 [================>.............] - ETA: 25s - loss: 1.2722 - acc: 0.3626
+24700/41172 [================>.............] - ETA: 25s - loss: 1.2717 - acc: 0.3630
+24800/41172 [=================>............] - ETA: 24s - loss: 1.2718 - acc: 0.3629
+24900/41172 [=================>............] - ETA: 24s - loss: 1.2713 - acc: 0.3631
+25000/41172 [=================>............] - ETA: 24s - loss: 1.2710 - acc: 0.3631
+25100/41172 [=================>............] - ETA: 24s - loss: 1.2706 - acc: 0.3632
+25200/41172 [=================>............] - ETA: 24s - loss: 1.2704 - acc: 0.3633
+25300/41172 [=================>............] - ETA: 24s - loss: 1.2703 - acc: 0.3636
+25400/41172 [=================>............] - ETA: 23s - loss: 1.2701 - acc: 0.3636
+25500/41172 [=================>............] - ETA: 23s - loss: 1.2702 - acc: 0.3634
+25600/41172 [=================>............] - ETA: 23s - loss: 1.2700 - acc: 0.3632
+25700/41172 [=================>............] - ETA: 23s - loss: 1.2696 - acc: 0.3633
+25800/41172 [=================>............] - ETA: 23s - loss: 1.2690 - acc: 0.3638
+25900/41172 [=================>............] - ETA: 23s - loss: 1.2689 - acc: 0.3641
+26000/41172 [=================>............] - ETA: 22s - loss: 1.2688 - acc: 0.3640
+26100/41172 [==================>...........] - ETA: 22s - loss: 1.2685 - acc: 0.3640
+26200/41172 [==================>...........] - ETA: 22s - loss: 1.2680 - acc: 0.3642
+26300/41172 [==================>...........] - ETA: 22s - loss: 1.2684 - acc: 0.3640
+26400/41172 [==================>...........] - ETA: 22s - loss: 1.2680 - acc: 0.3641
+26500/41172 [==================>...........] - ETA: 22s - loss: 1.2673 - acc: 0.3645
+26600/41172 [==================>...........] - ETA: 22s - loss: 1.2672 - acc: 0.3646
+26700/41172 [==================>...........] - ETA: 21s - loss: 1.2673 - acc: 0.3643
+26800/41172 [==================>...........] - ETA: 21s - loss: 1.2668 - acc: 0.3647
+26900/41172 [==================>...........] - ETA: 21s - loss: 1.2665 - acc: 0.3646
+27000/41172 [==================>...........] - ETA: 21s - loss: 1.2663 - acc: 0.3647
+27100/41172 [==================>...........] - ETA: 21s - loss: 1.2663 - acc: 0.3645
+27200/41172 [==================>...........] - ETA: 21s - loss: 1.2661 - acc: 0.3646
+27300/41172 [==================>...........] - ETA: 20s - loss: 1.2659 - acc: 0.3648
+27400/41172 [==================>...........] - ETA: 20s - loss: 1.2658 - acc: 0.3647
+27500/41172 [===================>..........] - ETA: 20s - loss: 1.2660 - acc: 0.3644
+27600/41172 [===================>..........] - ETA: 20s - loss: 1.2654 - acc: 0.3648
+27700/41172 [===================>..........] - ETA: 20s - loss: 1.2651 - acc: 0.3650
+27800/41172 [===================>..........] - ETA: 20s - loss: 1.2650 - acc: 0.3650
+27900/41172 [===================>..........] - ETA: 19s - loss: 1.2642 - acc: 0.3655
+28000/41172 [===================>..........] - ETA: 19s - loss: 1.2638 - acc: 0.3658
+28100/41172 [===================>..........] - ETA: 19s - loss: 1.2636 - acc: 0.3656
+28200/41172 [===================>..........] - ETA: 19s - loss: 1.2634 - acc: 0.3657
+28300/41172 [===================>..........] - ETA: 19s - loss: 1.2637 - acc: 0.3653
+28400/41172 [===================>..........] - ETA: 19s - loss: 1.2636 - acc: 0.3653
+28500/41172 [===================>..........] - ETA: 18s - loss: 1.2637 - acc: 0.3653
+28600/41172 [===================>..........] - ETA: 18s - loss: 1.2636 - acc: 0.3654
+28700/41172 [===================>..........] - ETA: 18s - loss: 1.2630 - acc: 0.3657
+28800/41172 [===================>..........] - ETA: 18s - loss: 1.2625 - acc: 0.3658
+28900/41172 [====================>.........] - ETA: 18s - loss: 1.2623 - acc: 0.3657
+29000/41172 [====================>.........] - ETA: 18s - loss: 1.2627 - acc: 0.3654
+29100/41172 [====================>.........] - ETA: 17s - loss: 1.2625 - acc: 0.3656
+29200/41172 [====================>.........] - ETA: 17s - loss: 1.2620 - acc: 0.3657
+
+*** WARNING: skipped 335289 bytes of output ***
+
+11900/41172 [=======>......................] - ETA: 31s - loss: 1.0142 - acc: 0.5068
+12000/41172 [=======>......................] - ETA: 31s - loss: 1.0141 - acc: 0.5069
+12100/41172 [=======>......................] - ETA: 31s - loss: 1.0144 - acc: 0.5069
+12200/41172 [=======>......................] - ETA: 31s - loss: 1.0137 - acc: 0.5076
+12300/41172 [=======>......................] - ETA: 31s - loss: 1.0138 - acc: 0.5078
+12400/41172 [========>.....................] - ETA: 31s - loss: 1.0136 - acc: 0.5075
+12500/41172 [========>.....................] - ETA: 31s - loss: 1.0137 - acc: 0.5072
+12600/41172 [========>.....................] - ETA: 31s - loss: 1.0143 - acc: 0.5065
+12700/41172 [========>.....................] - ETA: 31s - loss: 1.0149 - acc: 0.5061
+12800/41172 [========>.....................] - ETA: 30s - loss: 1.0148 - acc: 0.5066
+12900/41172 [========>.....................] - ETA: 30s - loss: 1.0151 - acc: 0.5060
+13000/41172 [========>.....................] - ETA: 30s - loss: 1.0157 - acc: 0.5053
+13100/41172 [========>.....................] - ETA: 30s - loss: 1.0161 - acc: 0.5048
+13200/41172 [========>.....................] - ETA: 30s - loss: 1.0156 - acc: 0.5049
+13300/41172 [========>.....................] - ETA: 30s - loss: 1.0156 - acc: 0.5050
+13400/41172 [========>.....................] - ETA: 30s - loss: 1.0152 - acc: 0.5054
+13500/41172 [========>.....................] - ETA: 30s - loss: 1.0150 - acc: 0.5056
+13600/41172 [========>.....................] - ETA: 30s - loss: 1.0149 - acc: 0.5058
+13700/41172 [========>.....................] - ETA: 29s - loss: 1.0148 - acc: 0.5063
+13800/41172 [=========>....................] - ETA: 29s - loss: 1.0154 - acc: 0.5054
+13900/41172 [=========>....................] - ETA: 29s - loss: 1.0153 - acc: 0.5059
+14000/41172 [=========>....................] - ETA: 29s - loss: 1.0153 - acc: 0.5061
+14100/41172 [=========>....................] - ETA: 29s - loss: 1.0154 - acc: 0.5060
+14200/41172 [=========>....................] - ETA: 29s - loss: 1.0155 - acc: 0.5056
+14300/41172 [=========>....................] - ETA: 29s - loss: 1.0155 - acc: 0.5055
+14400/41172 [=========>....................] - ETA: 29s - loss: 1.0153 - acc: 0.5056
+14500/41172 [=========>....................] - ETA: 29s - loss: 1.0150 - acc: 0.5063
+14600/41172 [=========>....................] - ETA: 29s - loss: 1.0153 - acc: 0.5057
+14700/41172 [=========>....................] - ETA: 28s - loss: 1.0158 - acc: 0.5054
+14800/41172 [=========>....................] - ETA: 28s - loss: 1.0159 - acc: 0.5055
+14900/41172 [=========>....................] - ETA: 28s - loss: 1.0161 - acc: 0.5048
+15000/41172 [=========>....................] - ETA: 28s - loss: 1.0160 - acc: 0.5049
+15100/41172 [==========>...................] - ETA: 28s - loss: 1.0158 - acc: 0.5052
+15200/41172 [==========>...................] - ETA: 28s - loss: 1.0159 - acc: 0.5051
+15300/41172 [==========>...................] - ETA: 28s - loss: 1.0159 - acc: 0.5049
+15400/41172 [==========>...................] - ETA: 28s - loss: 1.0163 - acc: 0.5048
+15500/41172 [==========>...................] - ETA: 28s - loss: 1.0161 - acc: 0.5050
+15600/41172 [==========>...................] - ETA: 27s - loss: 1.0166 - acc: 0.5046
+15700/41172 [==========>...................] - ETA: 27s - loss: 1.0169 - acc: 0.5044
+15800/41172 [==========>...................] - ETA: 27s - loss: 1.0166 - acc: 0.5047
+15900/41172 [==========>...................] - ETA: 27s - loss: 1.0164 - acc: 0.5050
+16000/41172 [==========>...................] - ETA: 27s - loss: 1.0161 - acc: 0.5053
+16100/41172 [==========>...................] - ETA: 27s - loss: 1.0159 - acc: 0.5054
+16200/41172 [==========>...................] - ETA: 27s - loss: 1.0156 - acc: 0.5056
+16300/41172 [==========>...................] - ETA: 27s - loss: 1.0161 - acc: 0.5052
+16400/41172 [==========>...................] - ETA: 27s - loss: 1.0158 - acc: 0.5055
+16500/41172 [===========>..................] - ETA: 26s - loss: 1.0162 - acc: 0.5052
+16600/41172 [===========>..................] - ETA: 26s - loss: 1.0162 - acc: 0.5051
+16700/41172 [===========>..................] - ETA: 26s - loss: 1.0159 - acc: 0.5054
+16800/41172 [===========>..................] - ETA: 26s - loss: 1.0161 - acc: 0.5050
+16900/41172 [===========>..................] - ETA: 26s - loss: 1.0159 - acc: 0.5052
+17000/41172 [===========>..................] - ETA: 26s - loss: 1.0162 - acc: 0.5052
+17100/41172 [===========>..................] - ETA: 26s - loss: 1.0160 - acc: 0.5055
+17200/41172 [===========>..................] - ETA: 26s - loss: 1.0160 - acc: 0.5053
+17300/41172 [===========>..................] - ETA: 26s - loss: 1.0161 - acc: 0.5051
+17400/41172 [===========>..................] - ETA: 25s - loss: 1.0158 - acc: 0.5053
+17500/41172 [===========>..................] - ETA: 25s - loss: 1.0154 - acc: 0.5056
+17600/41172 [===========>..................] - ETA: 25s - loss: 1.0155 - acc: 0.5056
+17700/41172 [===========>..................] - ETA: 25s - loss: 1.0156 - acc: 0.5054
+17800/41172 [===========>..................] - ETA: 25s - loss: 1.0157 - acc: 0.5055
+17900/41172 [============>.................] - ETA: 25s - loss: 1.0158 - acc: 0.5055
+18000/41172 [============>.................] - ETA: 25s - loss: 1.0157 - acc: 0.5057
+18100/41172 [============>.................] - ETA: 25s - loss: 1.0157 - acc: 0.5057
+18200/41172 [============>.................] - ETA: 25s - loss: 1.0156 - acc: 0.5062
+18300/41172 [============>.................] - ETA: 24s - loss: 1.0157 - acc: 0.5061
+18400/41172 [============>.................] - ETA: 24s - loss: 1.0157 - acc: 0.5059
+18500/41172 [============>.................] - ETA: 24s - loss: 1.0158 - acc: 0.5060
+18600/41172 [============>.................] - ETA: 24s - loss: 1.0160 - acc: 0.5057
+18700/41172 [============>.................] - ETA: 24s - loss: 1.0160 - acc: 0.5056
+18800/41172 [============>.................] - ETA: 24s - loss: 1.0161 - acc: 0.5056
+18900/41172 [============>.................] - ETA: 24s - loss: 1.0160 - acc: 0.5057
+19000/41172 [============>.................] - ETA: 24s - loss: 1.0162 - acc: 0.5057
+19100/41172 [============>.................] - ETA: 24s - loss: 1.0165 - acc: 0.5052
+19200/41172 [============>.................] - ETA: 23s - loss: 1.0163 - acc: 0.5053
+19300/41172 [=============>................] - ETA: 23s - loss: 1.0160 - acc: 0.5057
+19400/41172 [=============>................] - ETA: 23s - loss: 1.0157 - acc: 0.5058
+19500/41172 [=============>................] - ETA: 23s - loss: 1.0157 - acc: 0.5056
+19600/41172 [=============>................] - ETA: 23s - loss: 1.0156 - acc: 0.5055
+19700/41172 [=============>................] - ETA: 23s - loss: 1.0155 - acc: 0.5057
+19800/41172 [=============>................] - ETA: 23s - loss: 1.0152 - acc: 0.5060
+19900/41172 [=============>................] - ETA: 23s - loss: 1.0151 - acc: 0.5064
+20000/41172 [=============>................] - ETA: 23s - loss: 1.0149 - acc: 0.5063
+20100/41172 [=============>................] - ETA: 23s - loss: 1.0148 - acc: 0.5067
+20200/41172 [=============>................] - ETA: 22s - loss: 1.0148 - acc: 0.5065
+20300/41172 [=============>................] - ETA: 22s - loss: 1.0151 - acc: 0.5061
+20400/41172 [=============>................] - ETA: 22s - loss: 1.0152 - acc: 0.5059
+20500/41172 [=============>................] - ETA: 22s - loss: 1.0150 - acc: 0.5061
+20600/41172 [==============>...............] - ETA: 22s - loss: 1.0149 - acc: 0.5059
+20700/41172 [==============>...............] - ETA: 22s - loss: 1.0144 - acc: 0.5064
+20800/41172 [==============>...............] - ETA: 22s - loss: 1.0145 - acc: 0.5062
+20900/41172 [==============>...............] - ETA: 22s - loss: 1.0143 - acc: 0.5064
+21000/41172 [==============>...............] - ETA: 22s - loss: 1.0145 - acc: 0.5063
+21100/41172 [==============>...............] - ETA: 21s - loss: 1.0143 - acc: 0.5064
+21200/41172 [==============>...............] - ETA: 21s - loss: 1.0141 - acc: 0.5069
+21300/41172 [==============>...............] - ETA: 21s - loss: 1.0140 - acc: 0.5070
+21400/41172 [==============>...............] - ETA: 21s - loss: 1.0138 - acc: 0.5072
+21500/41172 [==============>...............] - ETA: 21s - loss: 1.0138 - acc: 0.5073
+21600/41172 [==============>...............] - ETA: 21s - loss: 1.0141 - acc: 0.5068
+21700/41172 [==============>...............] - ETA: 21s - loss: 1.0143 - acc: 0.5065
+21800/41172 [==============>...............] - ETA: 21s - loss: 1.0141 - acc: 0.5068
+21900/41172 [==============>...............] - ETA: 21s - loss: 1.0140 - acc: 0.5070
+22000/41172 [===============>..............] - ETA: 20s - loss: 1.0140 - acc: 0.5070
+22100/41172 [===============>..............] - ETA: 20s - loss: 1.0140 - acc: 0.5069
+22200/41172 [===============>..............] - ETA: 20s - loss: 1.0138 - acc: 0.5070
+22300/41172 [===============>..............] - ETA: 20s - loss: 1.0139 - acc: 0.5069
+22400/41172 [===============>..............] - ETA: 20s - loss: 1.0139 - acc: 0.5068
+22500/41172 [===============>..............] - ETA: 20s - loss: 1.0141 - acc: 0.5068
+22600/41172 [===============>..............] - ETA: 20s - loss: 1.0143 - acc: 0.5064
+22700/41172 [===============>..............] - ETA: 20s - loss: 1.0144 - acc: 0.5064
+22800/41172 [===============>..............] - ETA: 20s - loss: 1.0143 - acc: 0.5066
+22900/41172 [===============>..............] - ETA: 19s - loss: 1.0145 - acc: 0.5063
+23000/41172 [===============>..............] - ETA: 19s - loss: 1.0143 - acc: 0.5063
+23100/41172 [===============>..............] - ETA: 19s - loss: 1.0143 - acc: 0.5066
+23200/41172 [===============>..............] - ETA: 19s - loss: 1.0141 - acc: 0.5067
+23300/41172 [===============>..............] - ETA: 19s - loss: 1.0139 - acc: 0.5068
+23400/41172 [================>.............] - ETA: 19s - loss: 1.0141 - acc: 0.5064
+23500/41172 [================>.............] - ETA: 19s - loss: 1.0142 - acc: 0.5063
+23600/41172 [================>.............] - ETA: 19s - loss: 1.0142 - acc: 0.5061
+23700/41172 [================>.............] - ETA: 19s - loss: 1.0140 - acc: 0.5062
+23800/41172 [================>.............] - ETA: 18s - loss: 1.0141 - acc: 0.5061
+23900/41172 [================>.............] - ETA: 18s - loss: 1.0143 - acc: 0.5062
+24000/41172 [================>.............] - ETA: 18s - loss: 1.0144 - acc: 0.5058
+24100/41172 [================>.............] - ETA: 18s - loss: 1.0146 - acc: 0.5057
+24200/41172 [================>.............] - ETA: 18s - loss: 1.0144 - acc: 0.5057
+24300/41172 [================>.............] - ETA: 18s - loss: 1.0146 - acc: 0.5054
+24400/41172 [================>.............] - ETA: 18s - loss: 1.0144 - acc: 0.5055
+24500/41172 [================>.............] - ETA: 18s - loss: 1.0145 - acc: 0.5052
+24600/41172 [================>.............] - ETA: 18s - loss: 1.0145 - acc: 0.5052
+24700/41172 [================>.............] - ETA: 17s - loss: 1.0144 - acc: 0.5053
+24800/41172 [=================>............] - ETA: 17s - loss: 1.0142 - acc: 0.5054
+24900/41172 [=================>............] - ETA: 17s - loss: 1.0142 - acc: 0.5055
+25000/41172 [=================>............] - ETA: 17s - loss: 1.0139 - acc: 0.5059
+25100/41172 [=================>............] - ETA: 17s - loss: 1.0139 - acc: 0.5059
+25200/41172 [=================>............] - ETA: 17s - loss: 1.0137 - acc: 0.5062
+25300/41172 [=================>............] - ETA: 17s - loss: 1.0140 - acc: 0.5059
+25400/41172 [=================>............] - ETA: 17s - loss: 1.0138 - acc: 0.5061
+25500/41172 [=================>............] - ETA: 17s - loss: 1.0135 - acc: 0.5067
+25600/41172 [=================>............] - ETA: 16s - loss: 1.0134 - acc: 0.5068
+25700/41172 [=================>............] - ETA: 16s - loss: 1.0133 - acc: 0.5069
+25800/41172 [=================>............] - ETA: 16s - loss: 1.0133 - acc: 0.5069
+25900/41172 [=================>............] - ETA: 16s - loss: 1.0134 - acc: 0.5067
+26000/41172 [=================>............] - ETA: 16s - loss: 1.0134 - acc: 0.5067
+26100/41172 [==================>...........] - ETA: 16s - loss: 1.0134 - acc: 0.5067
+26200/41172 [==================>...........] - ETA: 16s - loss: 1.0133 - acc: 0.5067
+26300/41172 [==================>...........] - ETA: 16s - loss: 1.0130 - acc: 0.5070
+26400/41172 [==================>...........] - ETA: 16s - loss: 1.0128 - acc: 0.5072
+26500/41172 [==================>...........] - ETA: 15s - loss: 1.0127 - acc: 0.5074
+26600/41172 [==================>...........] - ETA: 15s - loss: 1.0128 - acc: 0.5073
+26700/41172 [==================>...........] - ETA: 15s - loss: 1.0127 - acc: 0.5075
+26800/41172 [==================>...........] - ETA: 15s - loss: 1.0129 - acc: 0.5073
+26900/41172 [==================>...........] - ETA: 15s - loss: 1.0128 - acc: 0.5073
+27000/41172 [==================>...........] - ETA: 15s - loss: 1.0128 - acc: 0.5076
+27100/41172 [==================>...........] - ETA: 15s - loss: 1.0129 - acc: 0.5075
+27200/41172 [==================>...........] - ETA: 15s - loss: 1.0130 - acc: 0.5073
+27300/41172 [==================>...........] - ETA: 15s - loss: 1.0131 - acc: 0.5071
+27400/41172 [==================>...........] - ETA: 14s - loss: 1.0131 - acc: 0.5071
+27500/41172 [===================>..........] - ETA: 14s - loss: 1.0127 - acc: 0.5076
+27600/41172 [===================>..........] - ETA: 14s - loss: 1.0129 - acc: 0.5073
+27700/41172 [===================>..........] - ETA: 14s - loss: 1.0131 - acc: 0.5071
+27800/41172 [===================>..........] - ETA: 14s - loss: 1.0129 - acc: 0.5073
+27900/41172 [===================>..........] - ETA: 14s - loss: 1.0127 - acc: 0.5076
+28000/41172 [===================>..........] - ETA: 14s - loss: 1.0127 - acc: 0.5076
+28100/41172 [===================>..........] - ETA: 14s - loss: 1.0127 - acc: 0.5079
+28200/41172 [===================>..........] - ETA: 14s - loss: 1.0127 - acc: 0.5079
+28300/41172 [===================>..........] - ETA: 14s - loss: 1.0126 - acc: 0.5078
+28400/41172 [===================>..........] - ETA: 13s - loss: 1.0127 - acc: 0.5079
+28500/41172 [===================>..........] - ETA: 13s - loss: 1.0128 - acc: 0.5078
+28600/41172 [===================>..........] - ETA: 13s - loss: 1.0129 - acc: 0.5078
+28700/41172 [===================>..........] - ETA: 13s - loss: 1.0130 - acc: 0.5077
+28800/41172 [===================>..........] - ETA: 13s - loss: 1.0130 - acc: 0.5077
+28900/41172 [====================>.........] - ETA: 13s - loss: 1.0132 - acc: 0.5075
+29000/41172 [====================>.........] - ETA: 13s - loss: 1.0132 - acc: 0.5075
+29100/41172 [====================>.........] - ETA: 13s - loss: 1.0132 - acc: 0.5075
+29200/41172 [====================>.........] - ETA: 13s - loss: 1.0131 - acc: 0.5077
+29300/41172 [====================>.........] - ETA: 12s - loss: 1.0130 - acc: 0.5076
+29400/41172 [====================>.........] - ETA: 12s - loss: 1.0130 - acc: 0.5075
+29500/41172 [====================>.........] - ETA: 12s - loss: 1.0127 - acc: 0.5077
+29600/41172 [====================>.........] - ETA: 12s - loss: 1.0128 - acc: 0.5075
+29700/41172 [====================>.........] - ETA: 12s - loss: 1.0128 - acc: 0.5074
+29800/41172 [====================>.........] - ETA: 12s - loss: 1.0128 - acc: 0.5073
+29900/41172 [====================>.........] - ETA: 12s - loss: 1.0130 - acc: 0.5070
+30000/41172 [====================>.........] - ETA: 12s - loss: 1.0131 - acc: 0.5070
+30100/41172 [====================>.........] - ETA: 12s - loss: 1.0131 - acc: 0.5070
+30200/41172 [=====================>........] - ETA: 11s - loss: 1.0130 - acc: 0.5071
+30300/41172 [=====================>........] - ETA: 11s - loss: 1.0131 - acc: 0.5068
+30400/41172 [=====================>........] - ETA: 11s - loss: 1.0132 - acc: 0.5067
+30500/41172 [=====================>........] - ETA: 11s - loss: 1.0130 - acc: 0.5070
+30600/41172 [=====================>........] - ETA: 11s - loss: 1.0130 - acc: 0.5068
+30700/41172 [=====================>........] - ETA: 11s - loss: 1.0130 - acc: 0.5068
+30800/41172 [=====================>........] - ETA: 11s - loss: 1.0128 - acc: 0.5071
+30900/41172 [=====================>........] - ETA: 11s - loss: 1.0127 - acc: 0.5073
+31000/41172 [=====================>........] - ETA: 11s - loss: 1.0124 - acc: 0.5076
+31100/41172 [=====================>........] - ETA: 10s - loss: 1.0124 - acc: 0.5074
+31200/41172 [=====================>........] - ETA: 10s - loss: 1.0124 - acc: 0.5074
+31300/41172 [=====================>........] - ETA: 10s - loss: 1.0123 - acc: 0.5075
+31400/41172 [=====================>........] - ETA: 10s - loss: 1.0123 - acc: 0.5075
+31500/41172 [=====================>........] - ETA: 10s - loss: 1.0124 - acc: 0.5073
+31600/41172 [======================>.......] - ETA: 10s - loss: 1.0126 - acc: 0.5072
+31700/41172 [======================>.......] - ETA: 10s - loss: 1.0125 - acc: 0.5074
+31800/41172 [======================>.......] - ETA: 10s - loss: 1.0126 - acc: 0.5075
+31900/41172 [======================>.......] - ETA: 10s - loss: 1.0125 - acc: 0.5076
+32000/41172 [======================>.......] - ETA: 9s - loss: 1.0125 - acc: 0.5076 
+32100/41172 [======================>.......] - ETA: 9s - loss: 1.0126 - acc: 0.5076
+32200/41172 [======================>.......] - ETA: 9s - loss: 1.0124 - acc: 0.5078
+32300/41172 [======================>.......] - ETA: 9s - loss: 1.0123 - acc: 0.5080
+32400/41172 [======================>.......] - ETA: 9s - loss: 1.0122 - acc: 0.5079
+32500/41172 [======================>.......] - ETA: 9s - loss: 1.0125 - acc: 0.5078
+32600/41172 [======================>.......] - ETA: 9s - loss: 1.0123 - acc: 0.5079
+32700/41172 [======================>.......] - ETA: 9s - loss: 1.0122 - acc: 0.5080
+32800/41172 [======================>.......] - ETA: 9s - loss: 1.0123 - acc: 0.5080
+32900/41172 [======================>.......] - ETA: 8s - loss: 1.0121 - acc: 0.5081
+33000/41172 [=======================>......] - ETA: 8s - loss: 1.0122 - acc: 0.5081
+33100/41172 [=======================>......] - ETA: 8s - loss: 1.0122 - acc: 0.5080
+33200/41172 [=======================>......] - ETA: 8s - loss: 1.0123 - acc: 0.5080
+33300/41172 [=======================>......] - ETA: 8s - loss: 1.0123 - acc: 0.5078
+33400/41172 [=======================>......] - ETA: 8s - loss: 1.0125 - acc: 0.5077
+33500/41172 [=======================>......] - ETA: 8s - loss: 1.0126 - acc: 0.5075
+33600/41172 [=======================>......] - ETA: 8s - loss: 1.0125 - acc: 0.5076
+33700/41172 [=======================>......] - ETA: 8s - loss: 1.0124 - acc: 0.5076
+33800/41172 [=======================>......] - ETA: 8s - loss: 1.0124 - acc: 0.5078
+33900/41172 [=======================>......] - ETA: 7s - loss: 1.0125 - acc: 0.5077
+34000/41172 [=======================>......] - ETA: 7s - loss: 1.0126 - acc: 0.5075
+34100/41172 [=======================>......] - ETA: 7s - loss: 1.0123 - acc: 0.5081
+34200/41172 [=======================>......] - ETA: 7s - loss: 1.0123 - acc: 0.5080
+34300/41172 [=======================>......] - ETA: 7s - loss: 1.0121 - acc: 0.5082
+34400/41172 [========================>.....] - ETA: 7s - loss: 1.0121 - acc: 0.5083
+34500/41172 [========================>.....] - ETA: 7s - loss: 1.0120 - acc: 0.5083
+34600/41172 [========================>.....] - ETA: 7s - loss: 1.0120 - acc: 0.5083
+34700/41172 [========================>.....] - ETA: 7s - loss: 1.0119 - acc: 0.5085
+34800/41172 [========================>.....] - ETA: 6s - loss: 1.0119 - acc: 0.5084
+34900/41172 [========================>.....] - ETA: 6s - loss: 1.0119 - acc: 0.5086
+35000/41172 [========================>.....] - ETA: 6s - loss: 1.0120 - acc: 0.5084
+35100/41172 [========================>.....] - ETA: 6s - loss: 1.0120 - acc: 0.5084
+35200/41172 [========================>.....] - ETA: 6s - loss: 1.0121 - acc: 0.5084
+35300/41172 [========================>.....] - ETA: 6s - loss: 1.0121 - acc: 0.5083
+35400/41172 [========================>.....] - ETA: 6s - loss: 1.0122 - acc: 0.5082
+35500/41172 [========================>.....] - ETA: 6s - loss: 1.0123 - acc: 0.5081
+35600/41172 [========================>.....] - ETA: 6s - loss: 1.0125 - acc: 0.5078
+35700/41172 [=========================>....] - ETA: 5s - loss: 1.0124 - acc: 0.5079
+35800/41172 [=========================>....] - ETA: 5s - loss: 1.0125 - acc: 0.5078
+35900/41172 [=========================>....] - ETA: 5s - loss: 1.0125 - acc: 0.5079
+36000/41172 [=========================>....] - ETA: 5s - loss: 1.0122 - acc: 0.5082
+36100/41172 [=========================>....] - ETA: 5s - loss: 1.0123 - acc: 0.5083
+36200/41172 [=========================>....] - ETA: 5s - loss: 1.0123 - acc: 0.5083
+36300/41172 [=========================>....] - ETA: 5s - loss: 1.0124 - acc: 0.5083
+36400/41172 [=========================>....] - ETA: 5s - loss: 1.0125 - acc: 0.5082
+36500/41172 [=========================>....] - ETA: 5s - loss: 1.0125 - acc: 0.5082
+36600/41172 [=========================>....] - ETA: 4s - loss: 1.0124 - acc: 0.5084
+36700/41172 [=========================>....] - ETA: 4s - loss: 1.0124 - acc: 0.5083
+36800/41172 [=========================>....] - ETA: 4s - loss: 1.0126 - acc: 0.5081
+36900/41172 [=========================>....] - ETA: 4s - loss: 1.0126 - acc: 0.5081
+37000/41172 [=========================>....] - ETA: 4s - loss: 1.0124 - acc: 0.5083
+37100/41172 [==========================>...] - ETA: 4s - loss: 1.0126 - acc: 0.5082
+37200/41172 [==========================>...] - ETA: 4s - loss: 1.0125 - acc: 0.5084
+37300/41172 [==========================>...] - ETA: 4s - loss: 1.0127 - acc: 0.5082
+37400/41172 [==========================>...] - ETA: 4s - loss: 1.0128 - acc: 0.5082
+37500/41172 [==========================>...] - ETA: 3s - loss: 1.0128 - acc: 0.5082
+37600/41172 [==========================>...] - ETA: 3s - loss: 1.0129 - acc: 0.5081
+37700/41172 [==========================>...] - ETA: 3s - loss: 1.0129 - acc: 0.5081
+37800/41172 [==========================>...] - ETA: 3s - loss: 1.0129 - acc: 0.5081
+37900/41172 [==========================>...] - ETA: 3s - loss: 1.0130 - acc: 0.5082
+38000/41172 [==========================>...] - ETA: 3s - loss: 1.0129 - acc: 0.5083
+38100/41172 [==========================>...] - ETA: 3s - loss: 1.0129 - acc: 0.5084
+38200/41172 [==========================>...] - ETA: 3s - loss: 1.0130 - acc: 0.5083
+38300/41172 [==========================>...] - ETA: 3s - loss: 1.0130 - acc: 0.5084
+38400/41172 [==========================>...] - ETA: 3s - loss: 1.0130 - acc: 0.5083
+38500/41172 [===========================>..] - ETA: 2s - loss: 1.0130 - acc: 0.5082
+38600/41172 [===========================>..] - ETA: 2s - loss: 1.0131 - acc: 0.5082
+38700/41172 [===========================>..] - ETA: 2s - loss: 1.0130 - acc: 0.5084
+38800/41172 [===========================>..] - ETA: 2s - loss: 1.0130 - acc: 0.5084
+38900/41172 [===========================>..] - ETA: 2s - loss: 1.0129 - acc: 0.5086
+39000/41172 [===========================>..] - ETA: 2s - loss: 1.0128 - acc: 0.5085
+39100/41172 [===========================>..] - ETA: 2s - loss: 1.0130 - acc: 0.5085
+39200/41172 [===========================>..] - ETA: 2s - loss: 1.0128 - acc: 0.5086
+39300/41172 [===========================>..] - ETA: 2s - loss: 1.0128 - acc: 0.5088
+39400/41172 [===========================>..] - ETA: 1s - loss: 1.0126 - acc: 0.5089
+39500/41172 [===========================>..] - ETA: 1s - loss: 1.0124 - acc: 0.5091
+39600/41172 [===========================>..] - ETA: 1s - loss: 1.0125 - acc: 0.5091
+39700/41172 [===========================>..] - ETA: 1s - loss: 1.0124 - acc: 0.5092
+39800/41172 [============================>.] - ETA: 1s - loss: 1.0123 - acc: 0.5094
+39900/41172 [============================>.] - ETA: 1s - loss: 1.0123 - acc: 0.5093
+40000/41172 [============================>.] - ETA: 1s - loss: 1.0120 - acc: 0.5096
+40100/41172 [============================>.] - ETA: 1s - loss: 1.0119 - acc: 0.5098
+40200/41172 [============================>.] - ETA: 1s - loss: 1.0122 - acc: 0.5097
+40300/41172 [============================>.] - ETA: 0s - loss: 1.0123 - acc: 0.5095
+40400/41172 [============================>.] - ETA: 0s - loss: 1.0123 - acc: 0.5095
+40500/41172 [============================>.] - ETA: 0s - loss: 1.0124 - acc: 0.5094
+40600/41172 [============================>.] - ETA: 0s - loss: 1.0123 - acc: 0.5094
+40700/41172 [============================>.] - ETA: 0s - loss: 1.0123 - acc: 0.5094
+40800/41172 [============================>.] - ETA: 0s - loss: 1.0123 - acc: 0.5094
+40900/41172 [============================>.] - ETA: 0s - loss: 1.0122 - acc: 0.5096
+41000/41172 [============================>.] - ETA: 0s - loss: 1.0122 - acc: 0.5097
+41100/41172 [============================>.] - ETA: 0s - loss: 1.0122 - acc: 0.5097
+41172/41172 [==============================] - 45s 1ms/step - loss: 1.0123 - acc: 0.5096 - val_loss: 1.0038 - val_acc: 0.5347
+Cancelled
+image_read("/dbfs//Cervix Data/same_aspect/Type_2/115.jpg",0,0).shape
+Cancelled
+
+display(spark_image_data)
+Cancelled
+image_data = spark_image_data.toPandas()
+Cancelled
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+import pandas as pd
+train, valid = train_test_split(image_data, test_size=0.1)
+
+train_reg = train.copy()
+train_reg["augmentation"] = 0
+
+train_rot = train.copy()
+train_rot["augmentation"] = 1
+
+train_warp = train.copy()
+train_warp["augmentation"] = 2
+
+train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+train_flip = train_aug.copy()
+train_flip["flip"] = 1
+
+train_nonflip = train_aug.copy()
+train_nonflip["flip"] = 0
+
+train_final = shuffle(pd.concat([train_nonflip,train_flip]),random_state =100)
+valid["flip"] = 0
+valid["augmentation"] = 0
+Cancelled
+spark_train_data = spark.createDataFrame(train_final)
+Cancelled
+def resultDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  
+  from keras.models import load_model
+  model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  score_train = model.evaluate_generator(train_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  train_acc = float(score_train[1])
+  train_loss = float(score_train[0])
+  score = model.evaluate_generator(val_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-7]+"_v11.h5", row.Alpha, row.BatchSize, row.DropoutA, row.DropoutB, loss, acc,train_loss,train_acc)
+Cancelled
+display(models_df_tune)
+Cancelled
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("BatchSize", IntegerType(), False),
+  StructField("DropoutA", DoubleType(), False),
+  StructField("DropoutB", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+  StructField("TrainLoss", DoubleType(), False),
+  StructField("TrainAccuracy", DoubleType(), False)
+                    ])
+Cancelled
+models_df_tune = models_df_tune.filter(models_df_tune.ModelLocation != "/dbfs//Cervix Data/params/paramodel7_v10.h5")
+pd_results_df = models_df_tune.rdd.map(resultDLModelHyper).toDF(schema).toPandas()
+Cancelled
+resultDLModelHyper(row.iloc[0])
+Cancelled
+display(pd_results_df)
+Cancelled
+spark.createDataFrame(pd_results_df).write.parquet("dbfs://Cervix Data/params/params1_v11_trainresults.parquet")
+Cancelled
+import numpy as np
+import cv2
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+def scaling(img,scale_x,scale_y):
+      """
+      Input an image in a numpy array, scale of the x and ydirection as a decimal
+      Outputs a numpy array as the scaled image
+      """
+      return cv2.resize(img,None,fx=scale_x, fy=scale_y, interpolation = cv2.INTER_LINEAR)
+def min_max_normalization(x,min,max):
+    """
+    This function takes an n by m array and normalizes each value based on the average of min and max values
+    of the RBG scale (min=0 and max=255).
+
+    It return an n by m array
+    """
+    avg_value=(max+min)/2.0
+    norm_array = np.zeros(x.shape)+avg_value
+    normalized_x= (x-norm_array)/norm_array
+    return normalized_x
+
+def perspectiveTransform(img_src,offset):
+    img = img_src
+    cols,rows,ch = img.shape
+    pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+    pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=0-offset,high=offset,size=1)],
+                       [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                       [np.random.randint(low=0-offset,high=offset,size=1),
+                        np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+    M = cv2.getPerspectiveTransform(pts1,pts2)
+
+    dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+    return dst
+
+def rotation(img, rotation_angle):
+    rows,cols = img.shape[0:2]
+
+    M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+    return cv2.warpAffine(img,M,(cols,rows))
+
+def image_read(path, flip, aug):
+  img = cv2.imread(path)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  if flip == 1:
+    img = np.fliplr(img)
+
+  if aug==0:
+      img = img
+  elif aug==1:
+      rotation_angle = np.random.randint(low=-60,high=61,size=1)
+      img= rotation(img, rotation_angle)
+  elif aug==2:
+      aug = np.random.randint(low=0,high=35,size=1)
+      img=perspectiveTransform(img,35)
+
+  #height_delta = max_height - img.shape[0]
+  #width_delta = max_width - img.shape[1]
+  return min_max_normalization(img,0,255)
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+
+train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+
+train_reg = train.copy()
+train_reg["augmentation"] = 0
+
+train_rot = train.copy()
+train_rot["augmentation"] = 1
+
+train_warp = train.copy()
+train_warp["augmentation"] = 2
+
+train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+train_flip = train_aug.copy()
+train_flip["flip"] = 1
+
+train_nonflip = train_aug.copy()
+train_nonflip["flip"] = 0
+
+train_final = shuffle(pd.concat([train_nonflip,train_flip]))
+valid["flip"] = 0
+valid["augmentation"] = 0
+/local_disk0/tmp/1551719388564-0/PythonShell.py:22: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  # the backend will not be properly initialized to use AGG.
+/local_disk0/tmp/1551719388564-0/PythonShell.py:23: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  import matplotlib as mpl
+images = []
+angles = []
+i =0
+for key, batch_sample in train.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_rot= rotation(img, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_aug=perspectiveTransform(img,aug)
+  #img_flip = np.fliplr(img)
+  #rotation_angle = np.random.randint(low=-60,high=61,size=1)
+  #img_flip_rot= rotation(img_flip, rotation_angle)
+  #aug = np.random.randint(low=1,high=20,size=1)[0]
+  #img_flip_aug=perspectiveTransform(img_flip,aug)  
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  #images.append(img_rot)
+  #images.append(img_aug)
+  #images.append(img_flip)
+  #images.append(img_flip_rot)
+  #images.append(img_flip_aug)
+  angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #angles.append(center_angle)
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_train = np.array(images)
+y_train = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+800
+900
+1000
+1100
+1200
+1300
+1400
+1500
+1600
+1700
+1800
+1900
+2000
+2100
+2200
+2300
+2400
+2500
+2600
+2700
+2800
+2900
+3000
+3100
+3200
+3300
+3400
+3500
+3600
+3700
+3800
+3900
+4000
+4100
+4200
+4300
+4400
+4500
+4600
+4700
+4800
+4900
+5000
+5100
+5200
+5300
+5400
+5500
+5600
+5700
+5800
+5900
+6000
+6100
+6200
+6300
+6400
+6500
+6600
+6700
+6800
+images = []
+angles = []
+i=0
+for key, batch_sample in valid.iterrows():
+  if i % 100 == 0:
+    print(i)
+  name = batch_sample.dst_path
+  img = cv2.imread(name)
+  img = min_max_normalization(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 0 ,255) 
+  #center_image = image_read(name, batch_sample.flip, batch_sample.augmentation)
+  center_angle = [0,0,0]
+  center_angle[batch_sample.label] = 1
+  images.append(img)
+  angles.append(center_angle)
+
+  #images.append(np.fliplr(center_image))
+  #angles.append([1-center_angle,center_angle])
+  i+=1
+X_val = np.array(images)
+y_val = np.array(angles)
+0
+100
+200
+300
+400
+500
+600
+700
+np.save("/dbfs//Cervix Data/same_aspect/X_train.npy", X_train)
+np.save("/dbfs//Cervix Data/same_aspect/y_train.npy", y_train)
+np.save("/dbfs//Cervix Data/same_aspect/X_val.npy", X_val)
+np.save("/dbfs//Cervix Data/same_aspect/y_val.npy", y_val)
+X_train = np.load("/dbfs//Cervix Data/same_aspect/X_train.npy")
+y_train = np.load("/dbfs//Cervix Data/same_aspect/y_train.npy")
+X_val = np.load("/dbfs//Cervix Data/same_aspect/X_val.npy")
+y_val = np.load("/dbfs//Cervix Data/same_aspect/y_val.npy")
+
+sc_X_train = sc.broadcast(X_train)
+sc_y_train = sc.broadcast(y_train)
+sc_X_val = sc.broadcast(X_val)
+sc_y_val = sc.broadcast(y_val)
+display(train.iloc[0:15])
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/5126.jpg	3264	2448	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/5126.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/5126.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/5126.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/3353.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/3353.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/3353.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/3353.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/850.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/850.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/850.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/850.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/6697.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/6697.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/6697.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/6697.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/2806.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/2806.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/2806.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/2806.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/1411.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/1411.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/1411.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/1411.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/4983.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/4983.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/4983.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/4983.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/234.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/234.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/234.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/234.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/4273.jpg	3264	2448	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/4273.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/4273.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/4273.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/1458.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/1458.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/1458.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/1458.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_3/1009.jpg	3264	2448	3	16	2	/dbfs/mnt/images/Cervix Data/train_data/train/Type_3/1009.jpg	/dbfs/pepar/Cervix Data/raw/Type_3/1009.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_3/1009.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_1/3479.jpg	4160	3120	3	16	0	/dbfs/mnt/images/Cervix Data/train_data/train/Type_1/3479.jpg	/dbfs/pepar/Cervix Data/raw/Type_1/3479.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_1/3479.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/2946.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/2946.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/2946.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/2946.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/77.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/77.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/77.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/77.jpg
+dbfs:/mnt/images/Cervix Data/train_data/train/Type_2/471.jpg	4128	3096	3	16	1	/dbfs/mnt/images/Cervix Data/train_data/train/Type_2/471.jpg	/dbfs/pepar/Cervix Data/raw/Type_2/471.jpg	/dbfs/pepar/Cervix Data/same_aspect/Type_2/471.jpg
+origin	height	width	nChannels	mode	label	src_path_datalake	src_path_dbfs	dst_path
