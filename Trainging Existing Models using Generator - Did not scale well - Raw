@@ -1,0 +1,592 @@
+databricks-logox5.2. Trainging Existing Models using Generator - Did not scale well - Raw(Python) Import Notebook
+Image Processing
+
+Distributed Deep Learning
+
+Get a reference dataframe of location to save model, and parameters of model training
+Define function to train model with given parameters and save model to location as specified
+Apply .rdd.map to reference dataframe (be sure the partition number is higher than 1)
+import pandas as pd
+image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+image_data.shape
+Out[8]: (7627, 9)
+ignore_wrong_labal = [x not in ["/dbfs//Cervix Data/same_aspect/Type_1/80.jpg", "/dbfs//Cervix Data/same_aspect/Type_3/968.jpg","/dbfs//Cervix Data/same_aspect/Type_3/1120.jpg"] for x in image_data["dst_path"]]
+image_data = image_data[ignore_wrong_labal]
+image_data.shape
+Out[7]: (7625, 9)
+import numpy as np
+import keras
+from sklearn.utils import shuffle
+import numpy as np
+import cv2
+Using TensorFlow backend.
+from PIL import Image 
+from pyspark.sql.types import StringType, StructType, DoubleType, StructField,IntegerType
+import matplotlib.pyplot as plt
+
+from __future__ import print_function
+import keras
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D
+from keras import backend as K
+import pandas as pd
+models_df_tune=spark.read.parquet("dbfs://Cervix Data/params/params1_v10.parquet")
+#models_df_tune.cache()
+models_df_tune = models_df_tune.filter(models_df_tune.Loss < 2.1)
+row = models_df_tune.toPandas()
+row.head()
+Out[34]: 
+                                       ModelLocation    ...     Accuracy
+0  /dbfs/pepar/Cervix Data/params/paramodel44_v10.h5    ...        0.575
+1   /dbfs/pepar/Cervix Data/params/paramodel6_v10.h5    ...        0.575
+2  /dbfs/pepar/Cervix Data/params/paramodel13_v10.h5    ...        0.575
+3   /dbfs/pepar/Cervix Data/params/paramodel5_v10.h5    ...        0.575
+4  /dbfs/pepar/Cervix Data/params/paramodel46_v10.h5    ...        0.575
+
+[5 rows x 7 columns]
+models_df_tune.count()
+Out[35]: 10
+str(row.iloc[18].ModelLocation)[:-6]+"_v3.h5"
+IndexError: single positional indexer is out-of-bounds
+def runDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  def scaling(img,scale_x,scale_y):
+      """
+      Input an image in a numpy array, scale of the x and ydirection as a decimal
+      Outputs a numpy array as the scaled image
+      """
+      return cv2.resize(img,None,fx=scale_x, fy=scale_y, interpolation = cv2.INTER_LINEAR)
+  def min_max_normalization(x,min,max):
+      """
+      This function takes an n by m array and normalizes each value based on the average of min and max values
+      of the RBG scale (min=0 and max=255).
+
+      It return an n by m array
+      """
+      avg_value=(max+min)/2.0
+      norm_array = np.zeros(x.shape)+avg_value
+      normalized_x= (x-norm_array)/norm_array
+      return normalized_x
+
+  def perspectiveTransform(img_src,offset):
+      img = img_src
+      cols,rows,ch = img.shape
+      pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+      pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                         [np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+      M = cv2.getPerspectiveTransform(pts1,pts2)
+
+      dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+      return dst
+
+  def rotation(img, rotation_angle):
+      rows,cols = img.shape[0:2]
+
+      M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+      return cv2.warpAffine(img,M,(cols,rows))
+
+  def image_read(path, flip, aug):
+    img = cv2.imread(path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    if flip == 1:
+      img = np.fliplr(img)
+
+    if aug==0:
+        img = img
+    elif aug==1:
+        rotation_angle = np.random.randint(low=-60,high=61,size=1)
+        img= rotation(img, rotation_angle)
+    elif aug==2:
+        aug = np.random.randint(low=0,high=35,size=1)
+        img=perspectiveTransform(img,35)
+
+    #height_delta = max_height - img.shape[0]
+    #width_delta = max_width - img.shape[1]
+    return min_max_normalization(img,0,255)
+
+  class DataGenerator(keras.utils.Sequence):
+      'Generates data for Keras'
+      def __init__(self, list_IDs, labels, flip, aug, batch_size=1, dim=(200,150), n_channels=3,
+                   n_classes=3, shuffle=False):
+          'Initialization'
+          self.dim = dim
+          self.batch_size = batch_size
+          self.labels = labels
+          self.list_IDs = list_IDs
+          self.n_channels = n_channels
+          self.flip = flip
+          self.aug = aug
+          self.n_classes = n_classes
+          self.shuffle = shuffle
+          self.on_epoch_end()
+
+      def __len__(self):
+          'Denotes the number of batches per epoch'
+          return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+      def __getitem__(self, index):
+          'Generate one batch of data'
+          # Generate indexes of the batch
+          indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+
+          # Find list of IDs
+          list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+          # Generate data
+          X, y = self.__data_generation(list_IDs_temp)
+
+          return X, y
+
+      def on_epoch_end(self):
+          'Updates indexes after each epoch'
+          self.indexes = np.arange(len(self.list_IDs))
+          if self.shuffle == True:
+              np.random.shuffle(self.indexes)
+
+      def __data_generation(self, list_IDs_temp):
+          'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
+          # Initialization
+          X = np.empty((self.batch_size, *self.dim, self.n_channels))
+          y = np.empty((self.batch_size), dtype=int)
+
+          # Generate data
+          for i, ID in enumerate(list_IDs_temp):
+              # Store sample
+              #print(ID)
+              X[i,] = image_read(ID, self.flip[i], self.aug[i])
+
+              # Store class
+              y[i] = self.labels[i]
+
+          return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
+  #print(row.ModelLocation)
+  train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+  train_wrong_labal = [x not in ["/dbfs//Cervix Data/same_aspect/Type_1/80.jpg", "/dbfs//Cervix Data/same_aspect/Type_3/968.jpg","/dbfs//Cervix Data/same_aspect/Type_3/1120.jpg"] for x in train["dst_path"]]
+  train = train[train_wrong_labal]
+  test_wrong_labal = [x not in ["/dbfs//Cervix Data/same_aspect/Type_1/80.jpg", "/dbfs//Cervix Data/same_aspect/Type_3/968.jpg","/dbfs//Cervix Data/same_aspect/Type_3/1120.jpg"] for x in valid["dst_path"]]
+  valid = valid[test_wrong_labal]
+
+  train_reg = train.copy()
+  train_reg["augmentation"] = 0
+
+  train_rot = train.copy()
+  train_rot["augmentation"] = 1
+
+  train_warp = train.copy()
+  train_warp["augmentation"] = 2
+
+  train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+  train_flip = train_aug.copy()
+  train_flip["flip"] = 1
+
+  train_nonflip = train_aug.copy()
+  train_nonflip["flip"] = 0
+
+  train_final = shuffle(pd.concat([train_nonflip,train_flip]))
+  valid["flip"] = 0
+  valid["augmentation"] = 0
+  train_generator = DataGenerator(train_final.dst_path.tolist(), train_final.label.tolist(), train_final.flip.tolist(), train_final.augmentation.tolist(), batch_size=int(row.BatchSize*2.5))
+  #increased batch size
+  val_generator = DataGenerator(valid.dst_path.tolist(), valid.label.tolist(), valid.flip.tolist(), valid.augmentation.tolist(),batch_size=40)
+  
+  from keras.models import load_model
+  model = load_model(str(row.ModelLocation))
+
+  model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer=keras.optimizers.Adam(lr = row.Alpha),
+                metrics=['accuracy'])
+  #batch_size = 100
+  from sklearn.utils import class_weight
+
+  class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(train_final.label),
+                                                 train_final.label)
+  epochs = 3
+
+  model.fit_generator(train_generator, validation_data=val_generator, epochs=epochs, max_queue_size=10,  workers=7, class_weight = class_weights, use_multiprocessing=True, verbose=0)
+  model.save(str(row.ModelLocation)[:-7]+"_v11.h5")
+  
+  score = model.evaluate_generator(val_generator, max_queue_size=7,workers=7, use_multiprocessing=True, verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-7]+"_v11.h5", row.Alpha, row.BatchSize, row.DropoutA, row.DropoutB, loss, acc)
+schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("BatchSize", IntegerType(), False),
+  StructField("DropoutA", DoubleType(), False),
+  StructField("DropoutB", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False)
+                    ])
+models_df_tune = models_df_tune.repartition(10)
+models_df_tune.cache()
+Out[40]: DataFrame[ModelLocation: string, Alpha: double, BatchSize: bigint, DropoutA: double, DropoutB: double, Loss: double, Accuracy: double]
+results_df = models_df_tune.rdd.map(runDLModelHyper).toDF(schema).toPandas()
+# Spark having lazy evaluation, the <display> action actually 'runs' the compute
+display(results_df)
+/dbfs/pepar/Cervix Data/params/paramodel6_v10.h5	0.0002163529442559525	40	0.16474441403808845	0.39799962590853877	0.9806448879994845	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel46_v10.h5	0.0001861157898397383	40	0.16474441403808845	0.39799962590853877	0.999258838201824	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel45_v10.h5	0.0001861157898397383	40	0.4185162666207506	0.28236743026273065	0.9638148577589738	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel15_v10.h5	0.004278005856800815	40	0.16474441403808845	0.28236743026273065	0.9904924631118774	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel4_v10.h5	0.0002163529442559525	40	0.4185162666207506	0.39799962590853877	1.0187324850182784	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel44_v10.h5	0.0001861157898397383	40	0.4185162666207506	0.39799962590853877	0.9870204549086722	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel13_v10.h5	0.004278005856800815	40	0.4185162666207506	0.28236743026273065	0.9666332006454468	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel5_v10.h5	0.0002163529442559525	40	0.4185162666207506	0.28236743026273065	0.9651263575804861	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel14_v10.h5	0.004278005856800815	40	0.16474441403808845	0.39799962590853877	0.9604905247688293	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel7_v10.h5	0.0002163529442559525	40	0.16474441403808845	0.28236743026273065	0.9708177666915091	0.5736841998602215
+ModelLocation	Alpha	BatchSize	DropoutA	DropoutB	Loss	Accuracy
+ #dbutils.fs.rm("dbfs://Cervix Data/params/params1_v7.parquet", recurse=True)
+spark.createDataFrame(results_df).write.parquet("dbfs://Cervix Data/params/params1_v11.parquet")
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_test.shape
+row.iloc[0]
+runDLModelHyper(row.iloc[1])
+/local_disk0/tmp/1551301355467-0/PythonShell.py:180: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  self._dropped += pos
+/local_disk0/tmp/1551301355467-0/PythonShell.py:181: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  else:
+Out[34]: 
+('/dbfs/pepar/Cervix Data/params/paramodel6_v7.h5',
+ 0.0002163529442559525,
+ 40,
+ 0.16474441403808845,
+ 0.39799962590853877,
+ 0.9628056256394637,
+ 0.574999988079071)
+image_read("/dbfs//Cervix Data/same_aspect/Type_2/115.jpg",0,0).shape
+
+display(spark_image_data)
+image_data = spark_image_data.toPandas()
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+import pandas as pd
+train, valid = train_test_split(image_data, test_size=0.1)
+
+train_reg = train.copy()
+train_reg["augmentation"] = 0
+
+train_rot = train.copy()
+train_rot["augmentation"] = 1
+
+train_warp = train.copy()
+train_warp["augmentation"] = 2
+
+train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+train_flip = train_aug.copy()
+train_flip["flip"] = 1
+
+train_nonflip = train_aug.copy()
+train_nonflip["flip"] = 0
+
+train_final = shuffle(pd.concat([train_nonflip,train_flip]),random_state =100)
+valid["flip"] = 0
+valid["augmentation"] = 0
+spark_train_data = spark.createDataFrame(train_final)
+def resultDLModelHyper(row):
+  import pandas as pd
+  #spark_image_data = spark.read.parquet("dbfs://Cervix Data/same_aspect/same_aspect/processed_image_metadata.parquet")
+  image_data = pd.read_json("/dbfs//Cervix Data/params/params1.json")
+  from sklearn.model_selection import train_test_split
+  from sklearn.utils import shuffle
+  import numpy as np
+  from keras.layers.advanced_activations import ELU
+  import os
+  from keras.models import Sequential
+  from keras.layers.core import Dense, Activation, Flatten, Dropout
+  from keras.layers.convolutional import Convolution2D
+  from keras.layers.pooling import MaxPooling2D
+  #from keras.layers.advanced_activations import ELU
+  #import pandas as pd
+  import datetime
+  #import matplotlib.image as mpimg
+  import numpy as np
+  import time
+  import datetime
+  import json
+  import os
+  import tensorflow as tf
+  #import horovod.tensorflow
+  from tensorflow.contrib import learn
+  from keras.datasets import mnist
+  #import horovod.tensorflow.keras as hvd
+  from tensorflow import keras
+  from tensorflow.keras import backend as K
+  from tensorflow.keras import layers
+  from tensorflow.keras.datasets import mnist
+  #from sparkdl import HorovodRunner
+  import keras
+  #from sklearn.utils import shuffle
+  import numpy as np
+  import cv2
+  from tensorflow.python.client import device_lib
+  device_lib.list_local_devices()
+  from keras.utils import multi_gpu_model
+  from keras import backend as K
+  K.tensorflow_backend._get_available_gpus()
+  def scaling(img,scale_x,scale_y):
+      """
+      Input an image in a numpy array, scale of the x and ydirection as a decimal
+      Outputs a numpy array as the scaled image
+      """
+      return cv2.resize(img,None,fx=scale_x, fy=scale_y, interpolation = cv2.INTER_LINEAR)
+  def min_max_normalization(x,min,max):
+      """
+      This function takes an n by m array and normalizes each value based on the average of min and max values
+      of the RBG scale (min=0 and max=255).
+
+      It return an n by m array
+      """
+      avg_value=(max+min)/2.0
+      norm_array = np.zeros(x.shape)+avg_value
+      normalized_x= (x-norm_array)/norm_array
+      return normalized_x
+
+  def perspectiveTransform(img_src,offset):
+      img = img_src
+      cols,rows,ch = img.shape
+      pts1 = np.float32([[0,0],[rows,0],[rows,cols],[0,cols]])
+      pts2 = np.float32([[np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=0-offset,high=offset,size=1)],
+                         [np.random.randint(low=rows-offset,high=rows+offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)],
+                         [np.random.randint(low=0-offset,high=offset,size=1),
+                          np.random.randint(low=cols-offset,high=cols+offset,size=1)]])
+
+      M = cv2.getPerspectiveTransform(pts1,pts2)
+
+      dst = cv2.warpPerspective(img,M,(rows,cols),borderMode=cv2.BORDER_REPLICATE)
+
+      return dst
+
+  def rotation(img, rotation_angle):
+      rows,cols = img.shape[0:2]
+
+      M = cv2.getRotationMatrix2D((cols/2,rows/2),rotation_angle,1)
+      return cv2.warpAffine(img,M,(cols,rows))
+
+  def image_read(path, flip, aug):
+    img = cv2.imread(path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    if flip == 1:
+      img = np.fliplr(img)
+
+    if aug==0:
+        img = img
+    elif aug==1:
+        rotation_angle = np.random.randint(low=-60,high=61,size=1)
+        img= rotation(img, rotation_angle)
+    elif aug==2:
+        aug = np.random.randint(low=0,high=35,size=1)
+        img=perspectiveTransform(img,35)
+
+    #height_delta = max_height - img.shape[0]
+    #width_delta = max_width - img.shape[1]
+    return min_max_normalization(img,0,255)
+
+  class DataGenerator(keras.utils.Sequence):
+      'Generates data for Keras'
+      def __init__(self, list_IDs, labels, flip, aug, batch_size=1, dim=(200,150), n_channels=3,
+                   n_classes=3, shuffle=False):
+          'Initialization'
+          self.dim = dim
+          self.batch_size = batch_size
+          self.labels = labels
+          self.list_IDs = list_IDs
+          self.n_channels = n_channels
+          self.flip = flip
+          self.aug = aug
+          self.n_classes = n_classes
+          self.shuffle = shuffle
+          self.on_epoch_end()
+
+      def __len__(self):
+          'Denotes the number of batches per epoch'
+          return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+      def __getitem__(self, index):
+          'Generate one batch of data'
+          # Generate indexes of the batch
+          indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+
+          # Find list of IDs
+          list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+          # Generate data
+          X, y = self.__data_generation(list_IDs_temp)
+
+          return X, y
+
+      def on_epoch_end(self):
+          'Updates indexes after each epoch'
+          self.indexes = np.arange(len(self.list_IDs))
+          if self.shuffle == True:
+              np.random.shuffle(self.indexes)
+
+      def __data_generation(self, list_IDs_temp):
+          'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
+          # Initialization
+          X = np.empty((self.batch_size, *self.dim, self.n_channels))
+          y = np.empty((self.batch_size), dtype=int)
+
+          # Generate data
+          for i, ID in enumerate(list_IDs_temp):
+              # Store sample
+              #print(ID)
+              X[i,] = image_read(ID, self.flip[i], self.aug[i])
+
+              # Store class
+              y[i] = self.labels[i]
+
+          return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
+  #print(row.Model)
+  train, valid = train_test_split(image_data, test_size=0.1, random_state = 100)
+
+  train_reg = train.copy()
+  train_reg["augmentation"] = 0
+
+  train_rot = train.copy()
+  train_rot["augmentation"] = 1
+
+  train_warp = train.copy()
+  train_warp["augmentation"] = 2
+
+  train_aug = pd.concat([train_reg,train_rot,train_warp])
+
+  train_flip = train_aug.copy()
+  train_flip["flip"] = 1
+
+  train_nonflip = train_aug.copy()
+  train_nonflip["flip"] = 0
+
+  train_final = shuffle(pd.concat([train_nonflip,train_flip]))
+  valid["flip"] = 0
+  valid["augmentation"] = 0
+  train_generator = DataGenerator(train_final.dst_path.tolist(), train_final.label.tolist(), train_final.flip.tolist(), train_final.augmentation.tolist(), batch_size=int(row.BatchSize))
+  val_generator = DataGenerator(valid.dst_path.tolist(), valid.label.tolist(), valid.flip.tolist(), valid.augmentation.tolist(),batch_size=40)
+  
+  from keras.models import load_model
+  model = load_model(str(row.ModelLocation)[:-7]+"_v11.h5")
+  score_train = model.evaluate_generator(train_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  train_acc = float(score_train[1])
+  train_loss = float(score_train[0])
+  score = model.evaluate_generator(val_generator, max_queue_size=10,workers=10, use_multiprocessing=True, verbose=0)
+  acc = float(score[1])
+  loss = float(score[0])
+  #acc = 1.0
+  #loss = 1.0
+  return(str(row.ModelLocation)[:-7]+"_v11.h5", row.Alpha, row.BatchSize, row.DropoutA, row.DropoutB, loss, acc,train_loss,train_acc)
+display(models_df_tune)
+/dbfs/pepar/Cervix Data/params/paramodel46_v10.h5	0.0001861157898397383	40	0.16474441403808845	0.39799962590853877	0.999258838201824	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel14_v10.h5	0.004278005856800815	40	0.16474441403808845	0.39799962590853877	0.9604905247688293	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel6_v10.h5	0.0002163529442559525	40	0.16474441403808845	0.39799962590853877	0.9806448879994845	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel45_v10.h5	0.0001861157898397383	40	0.4185162666207506	0.28236743026273065	0.9638148577589738	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel15_v10.h5	0.004278005856800815	40	0.16474441403808845	0.28236743026273065	0.9904924631118774	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel13_v10.h5	0.004278005856800815	40	0.4185162666207506	0.28236743026273065	0.9666332006454468	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel4_v10.h5	0.0002163529442559525	40	0.4185162666207506	0.39799962590853877	1.0187324850182784	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel7_v10.h5	0.0002163529442559525	40	0.16474441403808845	0.28236743026273065	0.9708177666915091	0.5736841998602215
+/dbfs/pepar/Cervix Data/params/paramodel5_v10.h5	0.0002163529442559525	40	0.4185162666207506	0.28236743026273065	0.9651263575804861	0.574999988079071
+/dbfs/pepar/Cervix Data/params/paramodel44_v10.h5	0.0001861157898397383	40	0.4185162666207506	0.39799962590853877	0.9870204549086722	0.574999988079071
+ModelLocation	Alpha	BatchSize	DropoutA	DropoutB	Loss	Accuracy
+ schema = StructType([
+  StructField("ModelLocation", StringType(), False),
+  StructField("Alpha", DoubleType(), False),
+  StructField("BatchSize", IntegerType(), False),
+  StructField("DropoutA", DoubleType(), False),
+  StructField("DropoutB", DoubleType(), False),
+  StructField("Loss", DoubleType(), False),
+  StructField("Accuracy", DoubleType(), False),
+  StructField("TrainLoss", DoubleType(), False),
+  StructField("TrainAccuracy", DoubleType(), False)
+                    ])
+models_df_tune = models_df_tune.filter(models_df_tune.ModelLocation != "/dbfs//Cervix Data/params/paramodel7_v10.h5")
+pd_results_df = models_df_tune.rdd.map(resultDLModelHyper).toDF(schema).toPandas()
+resultDLModelHyper(row.iloc[0])
+/local_disk0/tmp/1551363952918-0/PythonShell.py:180: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  self._dropped += pos
+/local_disk0/tmp/1551363952918-0/PythonShell.py:181: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  else:
+AttributeError: 'Series' object has no attribute 'batch_size'
+display(pd_results_df)
+/dbfs/pepar/Cervix Data/params/paramodel46_v11.h5	0.0001861157898397383	40	0.16474441403808845	0.39799962590853877	0.9955273239236129	0.574999988079071	1.0043798684494605	0.5249999761581421
+/dbfs/pepar/Cervix Data/params/paramodel14_v11.h5	0.004278005856800815	40	0.16474441403808845	0.39799962590853877	0.9610698819160461	0.574999988079071	1.0447711944580078	0.5
+/dbfs/pepar/Cervix Data/params/paramodel6_v11.h5	0.0002163529442559525	40	0.16474441403808845	0.39799962590853877	0.958515719363564	0.574999988079071	0.9975997003915822	0.45947521157468607
+/dbfs/pepar/Cervix Data/params/paramodel45_v11.h5	0.0001861157898397383	40	0.4185162666207506	0.28236743026273065	0.9606618191066542	0.574999988079071	1.042445642839252	0.5249999761581421
+/dbfs/pepar/Cervix Data/params/paramodel15_v11.h5	0.004278005856800815	40	0.16474441403808845	0.28236743026273065	0.9609033465385437	0.574999988079071	0.9469858407974243	0.6000000238418579
+/dbfs/pepar/Cervix Data/params/paramodel13_v11.h5	0.004278005856800815	40	0.4185162666207506	0.28236743026273065	0.9720430374145508	0.574999988079071	1.1681228876113892	0.4000000059604645
+/dbfs/pepar/Cervix Data/params/paramodel4_v11.h5	0.0002163529442559525	40	0.4185162666207506	0.39799962590853877	0.9957790155159799	0.574999988079071	0.9571478977958708	0.6499999761581421
+/dbfs/pepar/Cervix Data/params/paramodel5_v11.h5	0.0002163529442559525	40	0.4185162666207506	0.28236743026273065	0.9938056970897474	0.574999988079071	1.0938285680739364	0.5249999761581421
+/dbfs/pepar/Cervix Data/params/paramodel44_v11.h5	0.0001861157898397383	40	0.4185162666207506	0.39799962590853877	0.984258168622067	0.574999988079071	0.9658028046637629	0.574999988079071
+ModelLocation	Alpha	BatchSize	DropoutA	DropoutB	Loss	Accuracy	TrainLoss	TrainAccuracy
+ spark.createDataFrame(pd_results_df).write.parquet("dbfs://Cervix Data/params/params1_v11_trainresults.parquet")
